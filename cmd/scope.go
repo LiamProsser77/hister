@@ -69,6 +69,7 @@ func configureCommandScopes() {
 	setCommandScope(importFileCmd, executionScopeHybrid)
 	setCommandScope(importRaindropCmd, executionScopeHybrid)
 	setCommandScope(importBrowserCmd, executionScopeHybrid, "client-timeout")
+	setCommandScope(importBrowserHistoryCmd, executionScopeHybrid, "client-timeout")
 	setCommandScope(importBookmarksCmd, executionScopeHybrid, "client-timeout")
 	setCommandScope(importLinkdingCmd, executionScopeRemote)
 	setCommandScope(importLinkwardenCmd, executionScopeRemote)

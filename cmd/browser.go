@@ -30,7 +30,8 @@ var importBrowserCmd = &cobra.Command{
 	Short: "Import browsing history or bookmarks from a supported browser",
 	Long: `Import browsing history from a supported browser.
 
-Use ` + "`hister import browser bookmarks`" + ` to import bookmarks instead of visit history.
+Use ` + "`hister import browser history`" + ` or ` + "`hister import browser bookmarks`" + ` for named-flag imports.
+The bare ` + "`hister import browser`" + ` command still imports visit history.
 
 Usage:
   hister import browser                        auto-detect all installed browsers
