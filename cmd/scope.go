@@ -79,6 +79,7 @@ func configureCommandScopes() {
 
 	configureScopeGroups(rootCmd)
 	configureScopeGroups(importCmd)
+	configureScopeGroups(importBrowserCmd)
 	configureScopeGroups(crawlCmd)
 	configureScopeGroups(companionCmd)
 	configureScopeGroups(configCmd)
