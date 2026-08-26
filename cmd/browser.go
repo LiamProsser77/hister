@@ -101,7 +101,13 @@ type browserImportJob struct {
 	enqueued      int
 }
 
-const browserImportJobPrefix = "browser-import-"
+const (
+	browserImportJobPrefix     = "browser-import-"
+	bookmarkImportJobPrefix    = "bookmark-import-"
+	browserImportKindHistory   = "history"
+	browserImportKindBookmarks = "bookmarks"
+	firefoxBookmarkTable       = "moz_bookmarks"
+)
 
 var errNoBrowserURLs = errors.New("no URLs found to import")
 
@@ -131,7 +137,7 @@ func importHistory(cmd *cobra.Command, args []string) {
 				})
 			}
 		}
-		importDB(databases, cmd, startDate)
+		importDB(databases, cmd, startDate, browserImportKindHistory)
 
 	case 1, 2:
 		if len(args) == 1 {
@@ -155,7 +161,8 @@ func importHistory(cmd *cobra.Command, args []string) {
 				},
 			},
 				cmd,
-				startDate)
+				startDate,
+				browserImportKindHistory)
 		}
 
 	default:
@@ -177,7 +184,8 @@ func importBrowser(browser string, cmd *cobra.Command, startDate *time.Time) {
 					},
 				},
 					cmd,
-					startDate)
+					startDate,
+					browserImportKindHistory)
 			}
 		}
 	}
@@ -199,7 +207,8 @@ func importHistoryFile(file_path string, cmd *cobra.Command, startDate *time.Tim
 		},
 	},
 		cmd,
-		startDate)
+		startDate,
+		browserImportKindHistory)
 }
 
 // detectHistoryTable identifies a browser history database by the tables it contains.
@@ -266,7 +275,7 @@ func detectHistoryTable(path string) (_ string, err error) {
 	return "", errors.New("no recognised browser history table found")
 }
 
-func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time) {
+func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time, kind string) {
 	// Fetch skip rules from the server.
 	c := newClient()
 	resp, err := c.FetchRules()
@@ -281,10 +290,14 @@ func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time) 
 		}
 	}
 
-	minVisit, err := cmd.Flags().GetInt("min-visit")
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to read minimum visit count")
-		return
+	minVisit := 1
+	if cmd.Flags().Lookup("min-visit") != nil {
+		var err error
+		minVisit, err = cmd.Flags().GetInt("min-visit")
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to read minimum visit count")
+			return
+		}
 	}
 	dbsToImport, issues := prepareBrowserImports(databases, minVisit, startDate, func(u string) bool {
 		return !cfg.App.UserHandling && cfg.Rules.IsSkip(u)
@@ -313,9 +326,10 @@ func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time) 
 		}()
 	}
 
-	chosen := multipleChoiceImport(dbsToImport)
+	chosen := multipleChoiceImport(dbsToImport, importChoiceNoun(kind))
 
-	defaultJobID := browserImportJobPrefix + time.Now().Format("2006-01-02")
+	jobPrefix, defaultLabel := browserImportIdentity(kind)
+	defaultJobID := jobPrefix + time.Now().Format("2006-01-02")
 	jobID, resumeExisting, err := chooseBrowserImportJobID(defaultJobID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to select browser import crawl job")
@@ -325,7 +339,7 @@ func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time) 
 		id:            jobID,
 		labelOverride: newDocumentLabelOverride(cmd),
 	}
-	job.label = job.labelOverride.resolve("", "browser")
+	job.label = job.labelOverride.resolve("", defaultLabel)
 	if resumeExisting {
 		if err := ensureBrowserImportJob(job, ""); err != nil {
 			log.Error().Err(err).Msg("Failed to resume browser import crawl job")
@@ -338,7 +352,7 @@ func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time) 
 		count := database.count
 		db := database.db
 
-		q += " ORDER BY visit_count DESC"
+		q += browserImportOrderBy(kind)
 
 		rows, err := db.Query(q)
 		if err != nil {
@@ -626,7 +640,38 @@ func isSafariHistoryPath(path string) bool {
 	return strings.Contains(filepath.ToSlash(strings.ToLower(path)), "/library/safari/")
 }
 
+func browserImportIdentity(kind string) (prefix, label string) {
+	if kind == browserImportKindBookmarks {
+		return bookmarkImportJobPrefix, "bookmarks"
+	}
+	return browserImportJobPrefix, "browser"
+}
+
+func importChoiceNoun(kind string) string {
+	if kind == browserImportKindBookmarks {
+		return "Bookmarks"
+	}
+	return "Histories"
+}
+
+func browserImportOrderBy(kind string) string {
+	if kind == browserImportKindBookmarks {
+		return " ORDER BY p.visit_count DESC"
+	}
+	return " ORDER BY visit_count DESC"
+}
+
 func browserImportURLQuery(table string, minVisit int, startDate *time.Time) (string, error) {
+	if strings.EqualFold(table, firefoxBookmarkTable) {
+		if startDate != nil {
+			return "", fmt.Errorf("start date filtering is not supported for browser bookmarks")
+		}
+		q := "SELECT DISTINCT p.url FROM moz_bookmarks b JOIN moz_places p ON p.id = b.fk WHERE b.type = 1 AND (p.url LIKE 'http://%' OR p.url LIKE 'https://%')"
+		if minVisit > 1 {
+			q += fmt.Sprintf(" AND p.visit_count >= %d", minVisit)
+		}
+		return q, nil
+	}
 	// An unknown table is still usable: it is passed through as the FROM clause, which is what
 	// lets a caller name a table this code has never heard of. Only date filtering needs to know
 	// the schema, so only date filtering fails on one.
@@ -1122,11 +1167,11 @@ func browserTableName(browser string) string {
 	return ""
 }
 
-func multipleChoiceImport(choices []importHistoryMultipleChoicePrompt) []DBToImport {
+func multipleChoiceImport(choices []importHistoryMultipleChoicePrompt, noun string) []DBToImport {
 	r := bufio.NewReader(os.Stdin)
 	var s string
 	var returnDBs []DBToImport
-	println("----Available Histories----")
+	println("----Available " + noun + "----")
 	for i, choiceData := range choices {
 		prefix := getBrowserType(choiceData.choice)
 		choice := fmt.Sprint(strconv.Itoa(i), "  |  ", prefix, "  ", choiceData.choice, "  urls: ", choiceData.urls)
@@ -1143,7 +1188,7 @@ func multipleChoiceImport(choices []importHistoryMultipleChoicePrompt) []DBToImp
 			c:           choiceData.c,
 		})
 	}
-	println("==> Histories to exclude: (eg: \"1 2 3\", browser name or leave empty to to import all)")
+	println("==> " + noun + " to exclude: (eg: \"1 2 3\", browser name or leave empty to to import all)")
 	print("==> ")
 
 	s, _ = r.ReadString('\n')
