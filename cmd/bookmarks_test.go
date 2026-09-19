@@ -5,11 +5,6 @@ package cmd
 import (
 	"strings"
 	"testing"
-
-	"github.com/asciimoo/hister/pkg/browser/bookmarks"
-	"github.com/asciimoo/hister/pkg/browser/bookmarks/chromium"
-	"github.com/asciimoo/hister/pkg/browser/bookmarks/firefox"
-	"github.com/asciimoo/hister/pkg/browser/bookmarks/ladybird"
 )
 
 func TestResolveBookmarkStoresNamedDB(t *testing.T) {
@@ -17,27 +12,27 @@ func TestResolveBookmarkStoresNamedDB(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].Path != "/tmp/profile/places.sqlite" {
+	if len(got) != 1 || got[0].path != "/tmp/profile/places.sqlite" {
 		t.Fatalf("firefox store = %#v", got)
 	}
-	if _, ok := got[0].Source.(firefox.Source); !ok {
-		t.Fatalf("source = %T, want firefox.Source", got[0].Source)
+	if _, ok := got[0].source.(firefoxBookmarkSource); !ok {
+		t.Fatalf("source = %T, want firefoxBookmarkSource", got[0].source)
 	}
 
 	got, err = resolveBookmarkStores("chrome", "/tmp/Default/Bookmarks")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got[0].Source.(chromium.Source); !ok {
-		t.Fatalf("source = %T, want chromium.Source", got[0].Source)
+	if _, ok := got[0].source.(chromiumBookmarkSource); !ok {
+		t.Fatalf("source = %T, want chromiumBookmarkSource", got[0].source)
 	}
 
 	got, err = resolveBookmarkStores("", "/tmp/Ladybird/Bookmarks.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := got[0].Source.(ladybird.Source); !ok {
-		t.Fatalf("source = %T, want ladybird.Source", got[0].Source)
+	if _, ok := got[0].source.(ladybirdBookmarkSource); !ok {
+		t.Fatalf("source = %T, want ladybirdBookmarkSource", got[0].source)
 	}
 }
 
@@ -52,16 +47,16 @@ func TestResolveBookmarkStoresRejectsUnknown(t *testing.T) {
 
 func TestBookmarkSourceHasName(t *testing.T) {
 	tests := []struct {
-		src  bookmarks.Source
+		src  bookmarkSource
 		name string
 		want bool
 	}{
-		{firefox.Source{}, "firefox", true},
-		{firefox.Source{}, "fire", true},
-		{firefox.Source{}, "firefoxx", false},
-		{firefox.Source{}, "chrome", false},
-		{chromium.Source{}, "chrome", true},
-		{chromium.Source{}, "chrom", true},
+		{firefoxBookmarkSource{}, "firefox", true},
+		{firefoxBookmarkSource{}, "fire", true},
+		{firefoxBookmarkSource{}, "firefoxx", false},
+		{firefoxBookmarkSource{}, "chrome", false},
+		{chromiumBookmarkSource{}, "chrome", true},
+		{chromiumBookmarkSource{}, "chrom", true},
 	}
 	for _, tt := range tests {
 		got := bookmarkSourceHasName(tt.src, tt.name)

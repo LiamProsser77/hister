@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package chromium
+package cmd
 
 import (
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/asciimoo/hister/pkg/browser/bookmarks"
 )
 
 func TestChromiumBookmarkSourceListURLs(t *testing.T) {
@@ -36,14 +34,14 @@ func TestChromiumBookmarkSourceListURLs(t *testing.T) {
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Source{}.ListURLs(path)
+	got, err := chromiumBookmarkSource{}.listURLs(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"https://github.com/asciimoo/hister", "https://go.dev/blog/"}
 	slices.Sort(got)
 	if !slices.Equal(got, want) {
-		t.Fatalf("chromium ListURLs = %#v, want %#v", got, want)
+		t.Fatalf("chromium listURLs = %#v, want %#v", got, want)
 	}
 }
 
@@ -57,43 +55,42 @@ func TestChromiumDetectMultipleProfiles(t *testing.T) {
 	bm1 := filepath.Join(dir1, "Bookmarks")
 	bm2 := filepath.Join(dir2, "Bookmarks")
 
-	writeFile(t, hist1, "")
-	writeFile(t, hist2, "")
-	writeFile(t, hist3, "")
-	writeFile(t, bm1, `{"roots":{"bookmark_bar":{"type":"url","name":"one","url":"https://example.com/one"}}}`)
-	writeFile(t, bm2, `{"roots":{"bookmark_bar":{"type":"url","name":"two","url":"https://example.com/two"}}}`)
+	writeChromiumBookmarkFile(t, hist1, "")
+	writeChromiumBookmarkFile(t, hist2, "")
+	writeChromiumBookmarkFile(t, hist3, "")
+	writeChromiumBookmarkFile(t, bm1, `{"roots":{"bookmark_bar":{"type":"url","name":"one","url":"https://example.com/one"}}}`)
+	writeChromiumBookmarkFile(t, bm2, `{"roots":{"bookmark_bar":{"type":"url","name":"two","url":"https://example.com/two"}}}`)
 
-	find := func(table, prefix string) []bookmarks.Profile {
-		return []bookmarks.Profile{
-			{Name: "chrome", Paths: []string{hist1}},
-			{Name: "chromium", Paths: []string{hist2}},
-			{Name: "brave", Paths: []string{hist3}},
-		}
+	profiles := []browserDB{
+		{name: "chrome", table_name: "urls", paths: []string{hist1}},
+		{name: "chromium", table_name: "urls", paths: []string{hist2}},
+		{name: "brave", table_name: "urls", paths: []string{hist3}},
+		{name: "firefox", table_name: "moz_places", paths: []string{hist1}},
 	}
-	got := Source{}.Detect("", find)
+	got := chromiumBookmarkSource{}.detect(profiles)
 	if len(got) != 2 {
-		t.Fatalf("Detect returned %d stores, want 2: %#v", len(got), got)
+		t.Fatalf("detect returned %d stores, want 2: %#v", len(got), got)
 	}
 	want := map[string]string{
 		"chrome":   bm1,
 		"chromium": bm2,
 	}
 	for _, store := range got {
-		path, ok := want[store.Browser]
+		path, ok := want[store.browser]
 		if !ok {
-			t.Fatalf("unexpected browser %q", store.Browser)
+			t.Fatalf("unexpected browser %q", store.browser)
 		}
-		if store.Path != path {
-			t.Fatalf("%s path = %q, want %q", store.Browser, store.Path, path)
+		if store.path != path {
+			t.Fatalf("%s path = %q, want %q", store.browser, store.path, path)
 		}
-		delete(want, store.Browser)
+		delete(want, store.browser)
 	}
 	if len(want) != 0 {
 		t.Fatalf("missing stores: %#v", want)
 	}
 }
 
-func writeFile(t *testing.T, path, contents string) {
+func writeChromiumBookmarkFile(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o644); err != nil {
 		t.Fatal(err)

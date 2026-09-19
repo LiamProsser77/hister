@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package ladybird
+package cmd
 
 import (
 	"encoding/json"
@@ -8,48 +8,49 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/asciimoo/hister/pkg/browser/bookmarks"
 )
 
-type Source struct{}
+type ladybirdBookmarkSource struct{}
 
-type bookmarkItem struct {
-	Type     string         `json:"type"`
-	URL      string         `json:"url"`
-	Title    string         `json:"title"`
-	Children []bookmarkItem `json:"children"`
+type ladybirdBookmarkItem struct {
+	Type     string                 `json:"type"`
+	URL      string                 `json:"url"`
+	Title    string                 `json:"title"`
+	Children []ladybirdBookmarkItem `json:"children"`
 }
 
-type bookmarksFile struct {
-	Items []bookmarkItem `json:"items"`
+type ladybirdBookmarksFile struct {
+	Items []ladybirdBookmarkItem `json:"items"`
 }
 
-func (Source) Names() []string {
+func (ladybirdBookmarkSource) names() []string {
 	return []string{"ladybird"}
 }
 
-func (Source) Accepts(path string) bool {
+func (ladybirdBookmarkSource) accepts(path string) bool {
 	return strings.HasSuffix(path, "Bookmarks.json")
 }
 
-func (s Source) Detect(browser string, find bookmarks.FindProfiles) []bookmarks.Store {
-	var stores []bookmarks.Store
+func (s ladybirdBookmarkSource) detect(profiles []browserDB) []bookmarkStore {
+	var stores []bookmarkStore
 	seen := map[string]struct{}{}
 	add := func(path string) {
-		if !bookmarks.FileExists(path) {
+		if !bookmarkFileExists(path) {
 			return
 		}
 		if _, ok := seen[path]; ok {
 			return
 		}
 		seen[path] = struct{}{}
-		stores = append(stores, bookmarks.Store{Browser: "ladybird", Path: path, Source: s})
+		stores = append(stores, bookmarkStore{browser: "ladybird", path: path, source: s})
 	}
 
-	for _, db := range find("History", browser) {
-		for _, path := range db.Paths {
-			add(bookmarks.SiblingFile(path, "Bookmarks.json"))
+	for _, db := range profiles {
+		if db.table_name != "History" {
+			continue
+		}
+		for _, path := range db.paths {
+			add(bookmarkSiblingFile(path, "Bookmarks.json"))
 		}
 	}
 
@@ -82,26 +83,26 @@ func (s Source) Detect(browser string, find bookmarks.FindProfiles) []bookmarks.
 	return stores
 }
 
-func (Source) ListURLs(path string) ([]string, error) {
+func (ladybirdBookmarkSource) listURLs(path string) ([]string, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read ladybird bookmarks: %w", err)
 	}
-	var file bookmarksFile
+	var file ladybirdBookmarksFile
 	if err := json.Unmarshal(raw, &file); err != nil {
 		return nil, fmt.Errorf("parse ladybird bookmarks: %w", err)
 	}
-	return bookmarks.UniqueHTTPURLs(collectURLs(file.Items)), nil
+	return uniqueBookmarkURLs(collectLadybirdBookmarkURLs(file.Items)), nil
 }
 
-func collectURLs(items []bookmarkItem) []string {
+func collectLadybirdBookmarkURLs(items []ladybirdBookmarkItem) []string {
 	var urls []string
 	for _, item := range items {
 		if strings.EqualFold(item.Type, "bookmark") {
 			urls = append(urls, item.URL)
 			continue
 		}
-		urls = append(urls, collectURLs(item.Children)...)
+		urls = append(urls, collectLadybirdBookmarkURLs(item.Children)...)
 	}
 	return urls
 }

@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package firefox
+package cmd
 
 import (
 	"database/sql"
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/asciimoo/hister/pkg/browser/bookmarks"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -67,7 +65,7 @@ func TestFirefoxBookmarkURLQuerySeparatesBookmarksFromHistory(t *testing.T) {
 	// Rows match what Firefox 140 actually wrote in the spike: toolbar
 	// bookmarks via Ctrl+D, one history-only visit, plus stock Mozilla
 	// defaults and a couple of non-http items history import would mishandle.
-	mustExec(t, db, `INSERT INTO moz_places (id, url, title, visit_count, last_visit_date, guid) VALUES
+	execFirefoxBookmarkSQL(t, db, `INSERT INTO moz_places (id, url, title, visit_count, last_visit_date, guid) VALUES
 		(1, 'https://go.dev/blog/', 'The Go Blog - The Go Programming Language', 1, 1787709279314000, 'goblog'),
 		(2, 'https://pkg.go.dev/', 'Go Packages - Go Packages', 2, 1787709397912885, 'gopkg'),
 		(3, 'https://pkg.go.dev/search?q=', NULL, 1, 1787709397741448, 'gopkgsearch'),
@@ -76,7 +74,7 @@ func TestFirefoxBookmarkURLQuerySeparatesBookmarksFromHistory(t *testing.T) {
 		(6, 'https://support.mozilla.org/products/firefox', 'Get Help', 0, NULL, 'mozhelp'),
 		(7, 'about:config', 'about config', 1, 1787709500000000, 'aboutcfg'),
 		(8, 'javascript:void(0)', 'bookmarklet', 0, NULL, 'jsvoid')`)
-	mustExec(t, db, `INSERT INTO moz_bookmarks (id, type, fk, parent, position, title, guid) VALUES
+	execFirefoxBookmarkSQL(t, db, `INSERT INTO moz_bookmarks (id, type, fk, parent, position, title, guid) VALUES
 		(1, 2, NULL, 0, 0, 'root', 'root'),
 		(2, 2, NULL, 1, 0, 'menu', 'menu'),
 		(3, 2, NULL, 1, 1, 'toolbar', 'toolbar'),
@@ -93,7 +91,7 @@ func TestFirefoxBookmarkURLQuerySeparatesBookmarksFromHistory(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := Source{}.ListURLs(path)
+	got, err := firefoxBookmarkSource{}.listURLs(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +113,7 @@ func TestFirefoxBookmarkURLQuerySeparatesBookmarksFromHistory(t *testing.T) {
 	}
 }
 
-func mustExec(t *testing.T, db *sql.DB, q string) {
+func execFirefoxBookmarkSQL(t *testing.T, db *sql.DB, q string) {
 	t.Helper()
 	if _, err := db.Exec(q); err != nil {
 		t.Fatal(err)
@@ -125,20 +123,19 @@ func mustExec(t *testing.T, db *sql.DB, q string) {
 func TestFirefoxDetectMultipleProfiles(t *testing.T) {
 	p1 := "/tmp/a/places.sqlite"
 	p2 := "/tmp/b/places.sqlite"
-	find := func(table, prefix string) []bookmarks.Profile {
-		return []bookmarks.Profile{
-			{Name: "Firefox", Paths: []string{p1}},
-			{Name: "Zen", Paths: []string{p2}},
-		}
+	profiles := []browserDB{
+		{name: "Firefox", table_name: "moz_places", paths: []string{p1}},
+		{name: "Zen", table_name: "moz_places", paths: []string{p2}},
+		{name: "Chrome", table_name: "urls", paths: []string{p1}},
 	}
-	got := Source{}.Detect("", find)
+	got := firefoxBookmarkSource{}.detect(profiles)
 	if len(got) != 2 {
-		t.Fatalf("Detect = %#v, want 2 stores", got)
+		t.Fatalf("detect = %#v, want 2 stores", got)
 	}
-	if got[0].Path != p1 || got[0].Browser != "firefox" {
+	if got[0].path != p1 || got[0].browser != "firefox" {
 		t.Fatalf("first store = %#v, want path %q browser firefox", got[0], p1)
 	}
-	if got[1].Path != p2 || got[1].Browser != "zen" {
+	if got[1].path != p2 || got[1].browser != "zen" {
 		t.Fatalf("second store = %#v, want path %q browser zen", got[1], p2)
 	}
 }

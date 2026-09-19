@@ -1,14 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package ladybird
+package cmd
 
 import (
 	"os"
 	"path/filepath"
 	"slices"
 	"testing"
-
-	"github.com/asciimoo/hister/pkg/browser/bookmarks"
 )
 
 func TestLadybirdBookmarkSourceListURLs(t *testing.T) {
@@ -26,14 +24,14 @@ func TestLadybirdBookmarkSourceListURLs(t *testing.T) {
 	if err := os.WriteFile(path, []byte(raw), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	got, err := Source{}.ListURLs(path)
+	got, err := ladybirdBookmarkSource{}.listURLs(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"https://github.com/LadybirdBrowser/ladybird", "https://ladybird.org/"}
 	slices.Sort(got)
 	if !slices.Equal(got, want) {
-		t.Fatalf("ladybird ListURLs = %#v, want %#v", got, want)
+		t.Fatalf("ladybird listURLs = %#v, want %#v", got, want)
 	}
 }
 
@@ -47,6 +45,7 @@ func TestLadybirdDetectBothRootsAndProfiles(t *testing.T) {
 		filepath.Join(home, ".local", "share", "Ladybird", "Bookmarks.json"),
 		filepath.Join(home, "Library", "Application Support", "Ladybird", "Profiles", "work", "Bookmarks.json"),
 		filepath.Join(home, ".var", "app", "org.ladybird.Ladybird", "config", "Ladybird", "Profiles", "flat", "Bookmarks.json"),
+		filepath.Join(home, "custom", "Bookmarks.json"),
 	}
 	decoy := filepath.Join(home, ".config", "Ladybird", "not-a-profile", "Bookmarks.json")
 	for _, path := range append(append([]string{}, want...), decoy) {
@@ -58,20 +57,26 @@ func TestLadybirdDetectBothRootsAndProfiles(t *testing.T) {
 		}
 	}
 
-	find := func(table, prefix string) []bookmarks.Profile {
-		return nil
+	profiles := []browserDB{
+		{name: "Ladybird", table_name: "History", paths: []string{
+			filepath.Join(home, "custom", "History.db"),
+			filepath.Join(home, ".config", "Ladybird", "History.db"),
+		}},
+		{name: "Chrome", table_name: "urls", paths: []string{
+			filepath.Join(filepath.Dir(decoy), "History"),
+		}},
 	}
-	got := Source{}.Detect("", find)
+	got := ladybirdBookmarkSource{}.detect(profiles)
 	gotPaths := make([]string, 0, len(got))
 	for _, store := range got {
-		gotPaths = append(gotPaths, store.Path)
+		gotPaths = append(gotPaths, store.path)
 	}
 	slices.Sort(gotPaths)
 	slices.Sort(want)
 	if !slices.Equal(gotPaths, want) {
-		t.Fatalf("Detect paths = %#v, want %#v", gotPaths, want)
+		t.Fatalf("detect paths = %#v, want %#v", gotPaths, want)
 	}
 	if slices.Contains(gotPaths, decoy) {
-		t.Fatalf("Detect included decoy path %q", decoy)
+		t.Fatalf("detect included decoy path %q", decoy)
 	}
 }
