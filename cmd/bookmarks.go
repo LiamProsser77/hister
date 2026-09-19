@@ -11,6 +11,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+
+	"github.com/asciimoo/hister/server/model"
 )
 
 var importBookmarksCmd = &cobra.Command{
@@ -44,7 +46,7 @@ supported: it would drop bookmarks that have never been visited.
 `,
 	Args: cobra.NoArgs,
 	PreRun: func(_ *cobra.Command, _ []string) {
-		initDB()
+		initDB(model.ReadWrite)
 		initExtractor()
 	},
 	Run: importBookmarks,

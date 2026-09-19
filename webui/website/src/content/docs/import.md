@@ -183,7 +183,6 @@ document timestamp still describes when Hister fetched the page.
 
 Browser history documents receive the `browser` label by default. Use `--label LABEL` to replace it. Resumed browser import jobs reuse their stored label unless this flag is supplied again.
 
-
 ## Importing Browser Bookmarks
 
 Bookmark import reads saved bookmarks, then fetches the pages through the same crawl job used by history import.

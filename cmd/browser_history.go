@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/asciimoo/hister/server/model"
 )
 
 var importBrowserHistoryCmd = &cobra.Command{
@@ -29,7 +31,7 @@ visit is on or after that date.
 `,
 	Args: cobra.NoArgs,
 	PreRun: func(_ *cobra.Command, _ []string) {
-		initDB()
+		initDB(model.ReadWrite)
 		initExtractor()
 	},
 	Run: importBrowserHistory,

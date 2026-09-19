@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/asciimoo/hister/server/crawler"
@@ -77,7 +78,7 @@ func TestBrowserImportJobsFiltersByPrefix(t *testing.T) {
 		t.Fatalf("history prefixes = %#v", jobIDs(got))
 	}
 	ids := jobIDs(got)
-	if !contains(ids, "browser-history-import-2026-08-26") || !contains(ids, "browser-import-2026-08-25") {
+	if !slices.Contains(ids, "browser-history-import-2026-08-26") || !slices.Contains(ids, "browser-import-2026-08-25") {
 		t.Fatalf("history prefixes missing legacy or new job: %#v", ids)
 	}
 }
@@ -126,15 +127,6 @@ func TestImportBrowserCLICompat(t *testing.T) {
 	if len(args) != 0 {
 		t.Fatalf("bookmarks args = %#v", args)
 	}
-}
-
-func contains(xs []string, want string) bool {
-	for _, x := range xs {
-		if x == want {
-			return true
-		}
-	}
-	return false
 }
 
 func jobIDs(jobs []*model.CrawlJob) []string {
