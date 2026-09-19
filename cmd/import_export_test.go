@@ -140,7 +140,8 @@ func TestImportHTMLFileWithoutSourceURLUsesAddEndpoint(t *testing.T) {
 	})}
 
 	inputFile := filepath.Join(t.TempDir(), "Saved page.html")
-	if err := os.WriteFile(inputFile, []byte(`<html><head><title>Saved page</title></head></html>`), 0o600); err != nil {
+	const content = `<html><head><title>Saved page</title><style>style noise</style></head><body><p>Saved page content</p><script>script noise</script></body></html>`
+	if err := os.WriteFile(inputFile, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -162,8 +163,8 @@ func TestImportHTMLFileWithoutSourceURLUsesAddEndpoint(t *testing.T) {
 	if received.URL != wantURL || received.Type != document.RemoteFile {
 		t.Fatalf("imported document = %#v, want remote snapshot %q", received, wantURL)
 	}
-	if !strings.Contains(received.Text, "Saved page") {
-		t.Fatalf("imported text = %q, want saved page content", received.Text)
+	if strings.TrimSpace(received.Text) != "Saved page content" || received.Title != "Saved page" || received.HTML != content {
+		t.Fatalf("unexpected extracted HTML snapshot: %#v", received)
 	}
 }
 

@@ -62,7 +62,7 @@ Supported inputs are:
 | Other local file            | Extracts supported content locally and creates a remote file snapshot       |
 | Directory                   | Imports matching files recursively                                          |
 
-PDF, DOCX, Markdown, Org mode, and valid UTF 8 text use the same handlers as watched files. JSON that does not have the Hister export array shape and HTML that has no source URL are also treated as file snapshots.
+PDF, DOCX, Markdown, Org mode, HTML, and valid UTF 8 text use the same handlers as watched files. JSON that does not have the Hister export array shape and HTML that has no source URL are also treated as file snapshots. HTML snapshots contain extracted body text and a page title, with the original HTML retained for previews.
 
 Hister JSON exports need a `.json` extension when importing. The export command appends `.json` when the output filename has no extension: `hister export backup` writes `backup.json`, which you can restore with `hister import file backup.json`. Existing backups with another extension or no extension should be renamed to end in `.json` before importing.
 
@@ -82,7 +82,7 @@ You can also provide individual files or directories:
 hister import file ~/notes ~/Documents/report.pdf
 ```
 
-Snapshot extraction happens in the command line process. Only the extracted document fields are sent through `/api/add`. Hister does not send or retain the original file bytes. By default, the command imports once and exits. Use `--watch` to keep updating snapshots while the command is active.
+Snapshot extraction happens in the command line process. Only the prepared document fields are sent through `/api/add`, including extracted text and any HTML preview content. By default, the command imports once and exits. Use `--watch` to keep updating snapshots while the command is active.
 
 Remote file documents use a `remote-file://SOURCE/absolute/path` identity. The default source is the client hostname. Set a stable name when hostnames may change or when several clients have the same paths:
 

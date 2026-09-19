@@ -22,6 +22,10 @@ func TestFileTypeHandlerForPath(t *testing.T) {
 		{path: "notes.md", want: markdownFileType{}},
 		{path: "notes.markdown", want: markdownFileType{}},
 		{path: "notes.org", want: orgFileType{}},
+		{path: "page.html", want: htmlFileType{}},
+		{path: "page.HTML", want: htmlFileType{}},
+		{path: "page.htm", want: htmlFileType{}},
+		{path: "page.HTM", want: htmlFileType{}},
 		{path: "notes.txt", want: plainTextFileType{}},
 	}
 
@@ -54,6 +58,14 @@ func TestPrepareFileContent(t *testing.T) {
 			path:     "notes.txt",
 			content:  []byte("Plain text body"),
 			wantText: []string{"Plain text body"},
+		},
+		{
+			name:      "HTML",
+			path:      "page.html",
+			content:   []byte("<html><head><title>Saved page</title></head><body><p>Saved body</p></body></html>"),
+			wantTitle: "Saved page",
+			wantText:  []string{"Saved body"},
+			wantHTML:  "<p>Saved body</p>",
 		},
 		{
 			name:         "markdown",
