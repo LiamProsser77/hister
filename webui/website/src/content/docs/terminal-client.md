@@ -345,6 +345,17 @@ hister import file --watch --source work-laptop ~/notes
 
 The command extracts the same PDF, DOCX, Markdown, Org mode, and plain text formats used by watched directories. It does not send the original bytes. Run the command again to replace a snapshot with the same source name and absolute path, or use `--watch` to update snapshots while the command runs. Watch mode retries temporary server failures, prints a combined summary on exit, and scans all inputs again on restart. Source removals never delete remote snapshots, including when `delete_on_remove` is configured. See [Importing Documents](import) for details.
 
+### List Watched Files
+
+```bash
+hister list-files
+hister list-files --relative
+```
+
+This command lists files matching the configured directory watch rules. It does not check file contents or report indexing status. The list includes files that indexing rejects because of sensitive content, size, or format checks.
+
+Sensitive content rejections produce a warning in the server logs at the default log level, with the file path and no matched content. Rejected files remain watched and are checked again when they change.
+
 ### Importing Browser History and Bookmarks
 
 Use the browser subcommands to import visit history or saved bookmarks into a running Hister server:

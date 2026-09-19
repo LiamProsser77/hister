@@ -133,13 +133,21 @@ func (q *FileIndexQueue) process(item fileIndexQueueItem) {
 	switch item.op {
 	case fileIndexAdd:
 		if err := q.indexer.IndexFile(item.path, item.userID); err != nil {
-			log.Debug().Err(err).Str("path", item.path).Msg("Failed to index file")
+			logFileIndexError(item.path, err)
 		}
 	case fileIndexDelete:
 		if err := q.indexer.DeleteFile(item.path); err != nil {
 			log.Debug().Err(err).Str("path", item.path).Msg("Failed to delete file from index")
 		}
 	}
+}
+
+func logFileIndexError(path string, err error) {
+	if errors.Is(err, document.ErrSensitiveContent) {
+		log.Warn().Str("path", path).Msg("File indexing skipped: sensitive content detected")
+		return
+	}
+	log.Debug().Err(err).Str("path", path).Msg("Failed to index file")
 }
 
 func (i *Indexer) IndexAll(dirs []*config.Directory) {
@@ -165,7 +173,7 @@ func (i *Indexer) indexDirectory(dir string, cfg *config.Directory) error {
 
 	indexed, skipped, err := walkDirectoryFiles(dir, cfg, func(path string, userID uint) bool {
 		if err := i.IndexFile(path, userID); err != nil {
-			log.Debug().Err(err).Str("path", path).Msg("Skipping file")
+			logFileIndexError(path, err)
 			return false
 		}
 		return true

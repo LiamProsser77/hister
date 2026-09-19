@@ -49,8 +49,12 @@ var listURLsCmd = &cobra.Command{
 
 var listFilesCmd = &cobra.Command{
 	Use:   "list-files",
-	Short: "List all watched files for indexing",
-	Long:  `List all files that match the configured directory watch patterns`,
+	Short: "List files matching configured directory watch rules",
+	Long: `List all files that match the configured directory watch patterns.
+
+This lists indexing candidates, including files rejected by sensitive content,
+size, or format checks. It does not report whether a file is indexed.
+Rejected files remain watched and are checked again when they change.`,
 	Run: func(cmd *cobra.Command, _ []string) {
 		if len(cfg.Indexer.Directories) == 0 {
 			exit(1, "No directories configured for watching")

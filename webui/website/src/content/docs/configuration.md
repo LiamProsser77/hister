@@ -846,7 +846,9 @@ Files are indexed recursively, with the following rules:
 - Well-known dependency/cache directories (`node_modules`, `bower_components`, `jspm_packages`, `__pycache__`, `__pypackages__`) are skipped unless `include_hidden: true`
 - Binary files are skipped
 - Files larger than `indexer.max_file_size_mb` (default: 1 MB) are skipped
-- Files matching `sensitive_content_patterns` are skipped
+- Files matching `sensitive_content_patterns` are skipped with a warning that includes the path but no matched content
+
+`hister list-files` lists files matching the configured directory watch rules. It does not check file contents or report indexing status, so it also lists files rejected by sensitive content, size, or format checks. Rejected files remain watched and are checked again when they change.
 
 Changes to indexed directories are picked up automatically by the file watcher, no server restart is needed. On server start, only files that have been modified since they were last indexed are re-processed. File results appear with the domain `local` and are served through the Hister web interface directly.
 
