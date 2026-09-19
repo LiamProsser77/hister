@@ -62,7 +62,7 @@ If you can't access the Web interface at all, check that [the server is running]
 
 ## Next Steps
 
-- [Import files, browser history, or Linkwarden bookmarks](import)
+- [Import browser history, browser bookmarks, files, or content from reading services](import)
 - [Index local directories](configuration#local-directory-indexing)
 - [Enable semantic search](configuration#semantic-search)
 - In the Web interface, set up ignoring and priority rules, as well as keyword aliases for efficient searching

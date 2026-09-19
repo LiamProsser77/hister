@@ -2,20 +2,21 @@
 date: '2026-08-01T00:00:00+02:00'
 draft: false
 title: 'Browser Ingestion'
-description: 'Choose between live browser capture and history imports, and understand how repeated visits are stored.'
+description: 'Choose between live browser capture, history imports, and bookmark imports, and understand how repeated visits are stored.'
 ---
 
-Hister can collect browsing data in two different ways. The browser extension captures pages as you visit them. The browser history import reads old URLs from a browser database and fetches their current contents. Many people use both.
+The browser extension captures pages as you visit them. Browser imports read URLs from existing history or saved bookmarks and fetch their current contents. You can use imports to bring in existing content and the extension to capture future visits.
 
 ## Choose the Right Method
 
-| Goal                                              | Use                                                         | Why                                                                         |
-| ------------------------------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Index pages from now on                           | [Browser extension](browser-extension)                      | It captures rendered page content automatically while you browse            |
-| Capture pages behind a login                      | [Browser extension](browser-extension)                      | It sees the page already rendered in your signed in browser tab             |
-| Bring in existing browser history                 | [`hister import browser`](import#importing-browser-history) | It reads qualifying URLs from the browser history database                  |
-| Index an entire public site                       | [Website crawler](crawler)                                  | It follows permitted links instead of relying on your visit history         |
-| Keep a browser database continuously synchronized | No direct option                                            | Browser history import is an explicit import, not a continuous sync service |
+| Goal                                        | Use                                                                     | Why                                                                      |
+| ------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| Index pages from now on                     | [Browser extension](browser-extension)                                  | It captures rendered page content automatically while you browse         |
+| Capture pages behind a login                | [Browser extension](browser-extension)                                  | It sees the page already rendered in your signed in browser tab          |
+| Bring in existing browser history           | [`hister import browser`](import#importing-browser-history)             | It reads qualifying URLs from the browser history database               |
+| Bring in saved browser bookmarks            | [`hister import browser bookmarks`](import#importing-browser-bookmarks) | It reads saved URLs, including bookmarks you have never visited          |
+| Index an entire public site                 | [Website crawler](crawler)                                              | It follows permitted links instead of relying on your visit history      |
+| Keep browser data continuously synchronized | No direct option                                                        | History and bookmark imports run explicitly and do not continuously sync |
 
 ## Browser Extension Capture
 
@@ -48,6 +49,21 @@ The import does not inherit the browser session. Sites that need login cookies m
 Browser imports use persistent crawl jobs so an interrupted import can resume. The job records remain in the Hister database until you remove the job with `hister crawl delete JOB_ID`.
 
 See [Importing Browser History](import#importing-browser-history) for supported browsers, filtering, backends, cookies, and resume commands.
+
+## Browser Bookmark Import
+
+Import saved bookmarks from Firefox based browsers, Chromium based browsers, or Ladybird:
+
+```bash
+hister import browser bookmarks
+hister import browser bookmarks --browser firefox
+```
+
+Hister reads saved URLs, including bookmarks you have never visited, then fetches and indexes the current pages. Use `--browser` to select a browser or `--db` to select a bookmark store. Documents receive the `bookmarks` label by default; `--label LABEL` overrides it.
+
+Like history imports, bookmark imports use persistent crawl jobs and do not inherit your signed in browser session. They apply skip rules and support the same crawler backends and request options. The history filters `--min-visit` and `--start-date` do not apply to bookmarks.
+
+See [Importing Browser Bookmarks](import#importing-browser-bookmarks) for supported stores, examples, and resume commands.
 
 ## How Repeated Visits Behave
 

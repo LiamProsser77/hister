@@ -14,18 +14,20 @@ The `hister import` command collects related import tools under one command. Eve
 
 ## Available Import Sources
 
-| Command                                     | Source                                     | Default label             |
-| ------------------------------------------- | ------------------------------------------ | ------------------------- |
-| `hister import file [INPUT...]`             | Exports, saved pages, and file snapshots   | `import` or watched label |
-| `hister import browser [BROWSER] [DB_PATH]` | Browser history databases                  | `browser`                 |
-| `hister import linkding INSTANCE_URL`       | A Linkding instance through its HTTP API   | `linkding`                |
-| `hister import linkwarden INSTANCE_URL`     | A Linkwarden instance through its HTTP API | `linkwarden`              |
-| `hister import karakeep INSTANCE_URL`       | A Karakeep instance through its HTTP API   | `karakeep`                |
-| `hister import raindrop`                    | Raindrop.io through its HTTP API           | `raindrop`                |
-| `hister import raindrop --input INPUT.csv`  | A Raindrop.io CSV export                   | `raindrop`                |
-| `hister import readeck INSTANCE_URL`        | A Readeck instance through its HTTP API    | `readeck`                 |
-| `hister import shaarli INSTANCE_URL`        | A Shaarli instance through its HTTP API    | `shaarli`                 |
-| `hister import wallabag INSTANCE_URL`       | A wallabag instance through its HTTP API   | `wallabag`                |
+| Command                                     | Source                                      | Default label             |
+| ------------------------------------------- | ------------------------------------------- | ------------------------- |
+| `hister import file [INPUT...]`             | Exports, saved pages, and file snapshots    | `import` or watched label |
+| `hister import browser [BROWSER] [DB_PATH]` | Browser history databases                   | `browser`                 |
+| `hister import browser history`             | Browser history with `--browser` and `--db` | `browser`                 |
+| `hister import browser bookmarks`           | Firefox, Chromium, and Ladybird bookmarks   | `bookmarks`               |
+| `hister import linkding INSTANCE_URL`       | A Linkding instance through its HTTP API    | `linkding`                |
+| `hister import linkwarden INSTANCE_URL`     | A Linkwarden instance through its HTTP API  | `linkwarden`              |
+| `hister import karakeep INSTANCE_URL`       | A Karakeep instance through its HTTP API    | `karakeep`                |
+| `hister import raindrop`                    | Raindrop.io through its HTTP API            | `raindrop`                |
+| `hister import raindrop --input INPUT.csv`  | A Raindrop.io CSV export                    | `raindrop`                |
+| `hister import readeck INSTANCE_URL`        | A Readeck instance through its HTTP API     | `readeck`                 |
+| `hister import shaarli INSTANCE_URL`        | A Shaarli instance through its HTTP API     | `shaarli`                 |
+| `hister import wallabag INSTANCE_URL`       | A wallabag instance through its HTTP API    | `wallabag`                |
 
 Use the global `--server-url` and `--token` flags when the destination Hister server differs from your configured server or requires authentication.
 
@@ -37,9 +39,14 @@ Hister also limits each batch according to the byte limit advertised by the dest
 
 Use `hister import file` with any number of files or directories:
 
-> **Important:** You do not need this command to add or track files configured in
-> `indexer.directories`. Restart the Hister server after configuring a directory. The
-> server automatically scans it at startup and watches it for later changes.
+> **Important:** Use `hister import file` to restore Hister JSON exports, including
+> exports in 7z archives, regardless of whether the server can access them.
+>
+> For ordinary documents such as PDFs, notes, and text files, **importing is only
+> needed when the Hister server cannot access the files directly**. Otherwise, use
+> [local file indexing](configuration#local-directory-indexing). Configure
+> `indexer.directories` and restart the server to scan and watch those directories
+> automatically.
 
 ```bash
 hister import file export.json page.html ~/Downloads/saved-pages

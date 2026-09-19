@@ -158,10 +158,11 @@ search index. Hybrid commands access local files or Hister state and also use
 the configured Hister HTTP server.
 
 The file importer reads and prepares local files before submitting documents
-to the server. The browser importer reads local browser history, keeps its
-resumable crawl state locally, fetches page contents, and submits the prepared
-documents to the server. Bookmark import is import browser bookmarks and
-reads Firefox bookmarks from places.sqlite via --browser and --db.`,
+to the server. The browser importers read local history or bookmarks, keep
+resumable crawl state locally, fetch page contents, and submit the prepared
+documents to the server. Use import browser history for visit history or
+import browser bookmarks for bookmarks from Firefox based browsers, Chromium
+based browsers, and Ladybird. Both subcommands accept --browser and --db.`,
 }
 
 var importFileCmd = &cobra.Command{

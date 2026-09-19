@@ -11,7 +11,7 @@ Hister searches your own collection. It is not a general web search engine or a 
 
 ## Who Hister Is For
 
-Hister is for anyone who wants to create a searchable knowledge base from information they consider relevant or important. It brings content from different sources into one collection you control, including web pages, browser history, local files, and crawled sites.
+Hister is for anyone who wants to create a searchable knowledge base from information they consider relevant or important. It brings content from different sources into one collection you control, including web pages, browser history, bookmarks, local files, and crawled sites.
 
 It is not a hosted service, automatic cloud sync system, or records management system. You operate the server and decide how its data is secured and retained.
 
@@ -19,7 +19,7 @@ It is not a hosted service, automatic cloud sync system, or records management s
 
 Hister uses a client and server architecture. The server stores and searches documents. Clients collect content or run searches. The `hister` program can act as both, while the browser extension is a client. Everything can run on one computer, or several clients can connect to one server.
 
-Content can come from the browser extension, imported browser history, watched directories, crawlers, or API clients. The extension captures rendered pages as you visit them. Browser history import reads older URLs and fetches their current contents. See [Browser Ingestion](browser-ingestion) for the distinction.
+Content can come from the browser extension, imported browser history or bookmarks, watched directories, crawlers, or API clients. The extension captures rendered pages as you visit them. Browser imports read URLs from history or saved bookmarks and fetch their current contents. See [Browser Ingestion](browser-ingestion) to choose how to collect content.
 
 ## Privacy and Storage
 

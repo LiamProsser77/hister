@@ -277,9 +277,13 @@ Use `hister import file` to add documents from files on disk. It accepts an arbi
 number of files or directories, which are imported in order and reported as a
 combined total:
 
-> **Important:** You do not need to run `hister import file` to add or track files
-> configured in `indexer.directories`. After you add a directory to the configuration,
-> restart the Hister server. The server scans the directory and starts watching it
+> **Important:** Use `hister import file` to restore Hister JSON exports, including
+> exports in 7z archives, regardless of whether the server can access them.
+>
+> For ordinary documents such as PDFs, notes, and text files, **importing is only
+> needed when the Hister server cannot access the files directly**. Otherwise, use
+> [local file indexing](configuration#local-directory-indexing). Configure
+> `indexer.directories` and restart the server to scan and watch those directories
 > automatically.
 
 ```bash
@@ -329,7 +333,7 @@ Useful flags:
 
 > **Note:** `hister import file` talks to a running Hister server, so make sure the server
 > is started before importing. See [Importing Documents](import) for file,
-> browser history, and Linkwarden import instructions.
+> browser history, browser bookmark, and reading service import instructions.
 
 `hister import file` creates searchable snapshots when the server cannot read files directly. Snapshot extraction occurs locally and only the prepared document is sent through the normal add API. It is not needed for normal local file tracking. Starting or restarting the server scans every configured directory and starts its file watcher automatically. With no paths, the command creates snapshots for every file matched by configured watched directories. Explicit directories are recursive.
 
@@ -340,6 +344,25 @@ hister import file --watch --source work-laptop ~/notes
 ```
 
 The command extracts the same PDF, DOCX, Markdown, Org mode, and plain text formats used by watched directories. It does not send the original bytes. Run the command again to replace a snapshot with the same source name and absolute path, or use `--watch` to update snapshots while the command runs. Watch mode retries temporary server failures, prints a combined summary on exit, and scans all inputs again on restart. Source removals never delete remote snapshots, including when `delete_on_remove` is configured. See [Importing Documents](import) for details.
+
+### Importing Browser History and Bookmarks
+
+Use the browser subcommands to import visit history or saved bookmarks into a running Hister server:
+
+```bash
+# Import visit history from Firefox
+hister import browser history --browser firefox
+
+# Import saved bookmarks from Firefox
+hister import browser bookmarks --browser firefox
+
+# Import a specific Chromium bookmark store
+hister import browser bookmarks --db ~/.config/google-chrome/Default/Bookmarks
+```
+
+Omit `--browser` and `--db` to detect all supported browser profiles. The bare `hister import browser` command also imports history. History documents use the `browser` label and bookmark documents use `bookmarks`; use `--label LABEL` to override either default.
+
+Both importers fetch the current page contents and keep persistent crawl jobs that can resume after interruption. See [Importing Browser History](import#importing-browser-history) and [Importing Browser Bookmarks](import#importing-browser-bookmarks) for supported browsers and options.
 
 ## TUI (Terminal UI)
 
