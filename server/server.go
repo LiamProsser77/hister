@@ -189,7 +189,7 @@ func newListener(cfg config.Server) (net.Listener, error) {
 }
 
 func serveListener(ctx context.Context, listener net.Listener, handler http.Handler) error {
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	srv := &http.Server{Handler: handler}
 	shutdownDone := make(chan struct{})
 	stop := context.AfterFunc(ctx, func() {
