@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -11,40 +12,73 @@ import (
 )
 
 func TestHistoryTableFromPath(t *testing.T) {
-	tests := map[string]string{
-		"/tmp/places.sqlite":       "moz_places",
-		"/tmp/Default/History":     "urls",
-		"/tmp/Ladybird/History.db": "History",
-	}
-	for path, want := range tests {
-		got, err := historyTableFromPath(path)
+	dir := t.TempDir()
+
+	safari := filepath.Join(dir, "safari", "History.db")
+	writeSafariHistoryFile(t, safari, map[string]int64{"https://example.com": 1})
+
+	ladybird := filepath.Join(dir, "ladybird", "History.db")
+	writeTables(t, ladybird, "CREATE TABLE History (url TEXT, last_visited_time INTEGER)")
+
+	chrome := filepath.Join(dir, "chrome", "History")
+	writeTables(t, chrome, "CREATE TABLE urls (url TEXT, visit_count INTEGER)")
+
+	firefox := filepath.Join(dir, "firefox", "places.sqlite")
+	writeTables(t, firefox, "CREATE TABLE moz_places (url TEXT, last_visit_date INTEGER)")
+
+	for _, tc := range []struct{ name, path, want string }{
+		{"safari", safari, "safari"},
+		{"ladybird", ladybird, "History"},
+		{"chrome", chrome, "urls"},
+		{"firefox", firefox, "moz_places"},
+	} {
+		got, err := historyTableFromPath(tc.path)
 		if err != nil {
-			t.Fatalf("historyTableFromPath(%q) err = %v", path, err)
+			t.Fatalf("historyTableFromPath(%s) err = %v", tc.name, err)
 		}
-		if got != want {
-			t.Fatalf("historyTableFromPath(%q) = %q, want %q", path, got, want)
+		if got != tc.want {
+			t.Fatalf("historyTableFromPath(%s) = %q, want %q", tc.name, got, tc.want)
 		}
 	}
-	if _, err := historyTableFromPath("/tmp/Bookmarks"); err == nil {
-		t.Fatal("expected Bookmarks path to be rejected as history")
+
+	unknown := filepath.Join(dir, "other", "Bookmarks")
+	writeTables(t, unknown, "CREATE TABLE something_else (a TEXT)")
+	if _, err := historyTableFromPath(unknown); err == nil {
+		t.Fatal("expected unknown schema to be rejected")
 	}
 }
 
 func TestResolveHistoryImportsNamedDB(t *testing.T) {
-	got, err := resolveHistoryImports("", "/tmp/profile/places.sqlite")
+	dir := t.TempDir()
+	firefox := filepath.Join(dir, "places.sqlite")
+	writeTables(t, firefox, "CREATE TABLE moz_places (url TEXT, last_visit_date INTEGER)")
+
+	got, err := resolveHistoryImports("", firefox)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(got) != 1 || got[0].table != "moz_places" || got[0].databaseFile != "/tmp/profile/places.sqlite" {
+	if len(got) != 1 || got[0].table != "moz_places" || got[0].databaseFile != firefox {
 		t.Fatalf("resolveHistoryImports() = %#v", got)
 	}
 
-	got, err = resolveHistoryImports("chrome", "/tmp/Default/History")
+	chrome := filepath.Join(dir, "Default", "History")
+	writeTables(t, chrome, "CREATE TABLE urls (url TEXT, visit_count INTEGER)")
+	got, err = resolveHistoryImports("chrome", chrome)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got) != 1 || got[0].table != "urls" {
 		t.Fatalf("chrome History table = %#v", got)
+	}
+
+	safari := filepath.Join(dir, "Safari", "History.db")
+	writeSafariHistoryFile(t, safari, map[string]int64{"https://example.com": 1})
+	got, err = resolveHistoryImports("", safari)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0].table != "safari" {
+		t.Fatalf("safari History.db without --browser = %#v", got)
 	}
 }
 

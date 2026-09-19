@@ -109,14 +109,7 @@ func resolveHistoryImports(browser, dbPath string) ([]DBToImport, error) {
 }
 
 func historyTableFromPath(filePath string) (string, error) {
-	if strings.HasSuffix(filePath, "places.sqlite") {
-		return "moz_places", nil
-	}
-	if strings.HasSuffix(filePath, "History") {
-		return "urls", nil
-	}
-	if strings.HasSuffix(filePath, "History.db") {
-		return "History", nil
-	}
-	return "", fmt.Errorf("couldn't auto detect history table for %s", filePath)
+	// Filename suffixes cannot separate Safari from Ladybird (both History.db).
+	// Reuse schema detection from the legacy import browser path.
+	return detectHistoryTable(filePath)
 }

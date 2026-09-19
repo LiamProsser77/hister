@@ -108,3 +108,16 @@ func TestExcludeURLGroups(t *testing.T) {
 		t.Fatalf("exclude by name = %#v", got)
 	}
 }
+
+func TestExcludeURLGroupsCRLF(t *testing.T) {
+	groups := []urlImportGroup{
+		{name: "firefox", path: "/ff"},
+		{name: "chrome", path: "/ch"},
+	}
+	// promptExcludeURLGroups uses strings.Fields, which strips the trailing \r from CRLF input.
+	tokens := strings.Fields("1\r\n")
+	got := excludeURLGroups(groups, tokens)
+	if len(got) != 1 || got[0].name != "firefox" {
+		t.Fatalf("CRLF exclude by index = %#v", got)
+	}
+}

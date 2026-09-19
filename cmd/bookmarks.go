@@ -158,7 +158,7 @@ func multipleChoiceURLGroups(groups []urlImportGroup, noun string) []urlImportGr
 	print("==> ")
 
 	s, _ := r.ReadString('\n')
-	tokens := strings.Split(strings.Trim(s, "\n"), " ")
+	tokens := strings.Fields(s)
 	return excludeURLGroups(groups, tokens)
 }
 
