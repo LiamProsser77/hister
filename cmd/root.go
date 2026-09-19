@@ -14,10 +14,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	_ "time/tzdata"
 
@@ -179,16 +181,18 @@ var listenCmd = &cobra.Command{
 		if (cfg.App.AccessToken != "" || cfg.App.UserHandling) && strings.HasPrefix(cfg.BaseURL(""), "http://") {
 			log.Warn().Msg("Using authentication without https. Credentials and sessions are sent in plain text network requests.")
 		}
+		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
 		if len(cfg.Indexer.Directories) > 0 {
 			fileQueue := idx.NewFileIndexQueue()
 			go func() {
-				if err := fileQueue.Run(context.Background()); err != nil {
+				if err := fileQueue.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
 					log.Error().Err(err).Msg("File index queue failed")
 				}
 			}()
 			go fileQueue.EnqueueAll(cfg.Indexer.Directories)
 			go func() {
-				if err := files.WatchDirectories(context.Background(), cfg.Indexer.Directories, func(path string) {
+				if err := files.WatchDirectories(ctx, cfg.Indexer.Directories, func(path string) {
 					userID, err := files.FindDirUser(cfg.Indexer.Directories, path)
 					if err != nil {
 						log.Error().Err(err).Str("path", path).Msg("Failed to resolve user for file")
@@ -200,13 +204,13 @@ var listenCmd = &cobra.Command{
 					fileQueue.EnqueueIndex(path, userID)
 				}, func(path string) {
 					fileQueue.EnqueueDelete(path)
-				}); err != nil {
+				}); err != nil && !errors.Is(err, context.Canceled) {
 					log.Error().Err(err).Msg("File watcher failed")
 				}
 			}()
 		}
 		server.Version = Version
-		server.Listen(cfg, idx)
+		server.Listen(ctx, cfg, idx)
 	},
 }
 
@@ -317,7 +321,7 @@ func init() {
 	importCmd.AddCommand(importWallabagCmd)
 	importCmd.PersistentFlags().String("label", "", "Label to attach to all imported documents")
 
-	listenCmd.Flags().StringP("address", "a", dcfg.Server.Address, "Listen address")
+	listenCmd.Flags().StringP("address", "a", dcfg.Server.Address, "Listen address (host:port or unix:/absolute/path; Unix sockets require --server-url or server.base_url)")
 	listenCmd.Flags().Bool("public", false, "allow unauthenticated access to public search interfaces")
 
 	listURLsCmd.Flags().Bool("offline", false, "connect to the indexer directly without using the HTTP API (server should be stopped)")

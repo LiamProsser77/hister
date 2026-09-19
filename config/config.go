@@ -96,6 +96,18 @@ func (s Server) MaxBatchBodyBytes() int64 {
 	return s.MaxBatchBodySize << 20
 }
 
+// ListenEndpoint returns the network and address used by net.Listen.
+// Unix sockets use unix:/absolute/path; other addresses use TCP.
+func (s Server) ListenEndpoint() (network, address string, err error) {
+	if address, ok := strings.CutPrefix(s.Address, "unix:"); ok {
+		if !filepath.IsAbs(address) || strings.ContainsRune(address, '\x00') {
+			return "", "", errors.New("server.address: Unix sockets require an absolute path, such as unix:/run/hister/hister.sock")
+		}
+		return "unix", address, nil
+	}
+	return "tcp", s.Address, nil
+}
+
 // OAuthEntry holds configuration for a single OAuth 2.0 / OIDC provider.
 type OAuthEntry struct {
 	ClientID         string   `yaml:"client_id"         mapstructure:"client_id"`
@@ -621,6 +633,9 @@ func parseConfig(rawConfig []byte) (*Config, error) {
 }
 
 func (c *Config) validateBasic() error {
+	if _, _, err := c.Server.ListenEndpoint(); err != nil {
+		return err
+	}
 	maxBatchBodySize := int64(^uint64(0)>>1) >> 20
 	if c.Server.MaxBatchBodySize < 1 || c.Server.MaxBatchBodySize > maxBatchBodySize {
 		return fmt.Errorf("server.max_batch_body_size must be between 1 and %d", maxBatchBodySize)
@@ -646,7 +661,11 @@ func (c *Config) normalize() error {
 		c.App.Directory = dataDir
 	}
 
-	if envPort := os.Getenv("HISTER_PORT"); envPort != "" {
+	network, _, err := c.Server.ListenEndpoint()
+	if err != nil {
+		return err
+	}
+	if envPort := os.Getenv("HISTER_PORT"); envPort != "" && network == "tcp" {
 		host, _, err := net.SplitHostPort(c.Server.Address)
 		if err != nil || host == "" {
 			host = c.Server.Address
@@ -750,6 +769,11 @@ func (c *Config) ValidatePublicMode() error {
 }
 
 func (c *Config) UpdateListenAddress(a string) error {
+	s := c.Server
+	s.Address = a
+	if _, _, err := s.ListenEndpoint(); err != nil {
+		return err
+	}
 	c.Server.Address = a
 	if c.usesDefaultBaseURL {
 		return c.UpdateBaseURL("")
@@ -758,8 +782,15 @@ func (c *Config) UpdateListenAddress(a string) error {
 }
 
 func (c *Config) UpdateBaseURL(u string) error {
+	network, _, err := c.Server.ListenEndpoint()
+	if err != nil {
+		return err
+	}
 	// If the base URL is unspecified, it defaults to the listen address.
 	if u == "" {
+		if network == "unix" {
+			return errors.New("server.base_url must be specified when listening on a Unix socket")
+		}
 		c.usesDefaultBaseURL = true
 		addr_port, err := netip.ParseAddrPort(c.Server.Address)
 		if err != nil {

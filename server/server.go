@@ -143,11 +143,11 @@ func recParseStaticFiles(entries []iofs.DirEntry, dir, baseDir string) error {
 	return nil
 }
 
-func Listen(cfg *config.Config, idx *indexer.Indexer) {
+func Listen(ctx context.Context, cfg *config.Config, idx *indexer.Indexer) {
 	sessionStore = newSessionStore(cfg.SecretKey(), cfg.BaseURL(""), sessionMaxAge)
 
 	if cfg.Server.Metrics {
-		m := metrics.New(context.Background(), idx)
+		m := metrics.New(ctx, idx)
 		idx.SetMetrics(m)
 		log.Info().Msg("Prometheus metrics endpoint enabled")
 		defer m.Stop()
@@ -167,11 +167,47 @@ func Listen(cfg *config.Config, idx *indexer.Indexer) {
 	handler := registerEndpoints(cfg, idx)
 	handler = withLogging(handler)
 
-	log.Info().Str("Address", cfg.Server.Address).Str("Version", Version).Str("URL", cfg.BaseURL("/")).Msg("Starting webserver")
-	err := http.ListenAndServe(cfg.Server.Address, handler)
+	listener, err := newListener(cfg.Server)
 	if err != nil {
 		log.Error().Err(err).Msg("Webserver failed to listen on " + cfg.Server.Address)
+		return
 	}
+	log.Info().Str("Address", cfg.Server.Address).Str("Version", Version).Str("URL", cfg.BaseURL("/")).Msg("Starting webserver")
+	if err := serveListener(ctx, listener, handler); err != nil {
+		log.Error().Err(err).Msg("Webserver failed")
+	}
+}
+
+func newListener(cfg config.Server) (net.Listener, error) {
+	network, address, err := cfg.ListenEndpoint()
+	if err != nil {
+		return nil, err
+	}
+	// Leave permissions to the process umask and parent directory. Never remove
+	// an existing path, which may belong to another running server.
+	return net.Listen(network, address)
+}
+
+func serveListener(ctx context.Context, listener net.Listener, handler http.Handler) error {
+	defer listener.Close()
+	srv := &http.Server{Handler: handler}
+	shutdownDone := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		defer close(shutdownDone)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			_ = srv.Close()
+		}
+	})
+	err := srv.Serve(listener)
+	if !stop() {
+		<-shutdownDone
+	}
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
+	return err
 }
 
 func createHandler(cfg *config.Config, idx *indexer.Indexer, h func(*webContext)) func(w http.ResponseWriter, r *http.Request) {

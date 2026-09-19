@@ -135,14 +135,14 @@ description: 'Explore every configuration section, option, default value, enviro
       name: 'address',
       type: 'string',
       defaultValue: '127.0.0.1:4433',
-      description: 'Host and port to listen on. Use [::]:4433 or 0.0.0.0:4433 to listen on all interfaces.',
+      description: 'Host and port to listen on, or unix:/absolute/path for a Unix socket. Use [::]:4433 or 0.0.0.0:4433 to listen on all interfaces.',
     },
     {
       name: 'base_url',
       type: 'string',
       defaultValue: 'derived from address',
       scopes: ['server', 'client'],
-      description: 'Public URL of the Hister instance. It is required when address uses 0.0.0.0 and must match how you access Hister.',
+      description: 'Public URL of the Hister instance. Required when listening on all interfaces or a Unix socket. It must match how you access Hister.',
     },
     {
       name: 'database',
@@ -662,11 +662,11 @@ For example:
 
 Three special purpose variables are also supported:
 
-| Variable          | Description                                                                  |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `HISTER_CONFIG`   | Select a config file when `--config` is not supplied                         |
-| `HISTER_PORT`     | Override the port only while keeping the existing host from `server.address` |
-| `HISTER_DATA_DIR` | Override `app.directory`                                                     |
+| Variable          | Description                                                                                   |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| `HISTER_CONFIG`   | Select a config file when `--config` is not supplied                                          |
+| `HISTER_PORT`     | Override the TCP port while keeping the host from `server.address`. Ignored for Unix sockets. |
+| `HISTER_DATA_DIR` | Override `app.directory`                                                                      |
 
 ## Full Configuration
 
@@ -693,6 +693,8 @@ Each option below has one or both scope tags. The `server` tag marks settings us
 <ConfigReference items={serverOptions} scopes={['server']} />
 
 For `server.metrics`, see [Monitoring](monitoring) for authentication, Prometheus scrape configuration, and metric definitions.
+
+For Unix socket permissions and reverse proxy examples, see [Unix sockets](server-setup#unix-sockets).
 
 ## Database Backends
 

@@ -196,6 +196,44 @@ map $uri $hister_connection {
 
 **Note**: if search doesn't work, there likely is a problem with WebSocket connections; troubleshooting info can be gathered from Nginx's `access.log` (tells you whether requests reached Nginx) and `error.log` (tells if you if any errors occurred _within_ Nginx).
 
+## Unix sockets
+
+On systems with Unix socket support, Hister can serve HTTP through a filesystem socket. Set `server.address` to `unix:` followed by an absolute path:
+
+```yaml
+server:
+  address: unix:/run/hister/hister.sock
+  base_url: https://hister.example.com
+```
+
+The equivalent command line options are:
+
+```bash
+hister listen --address unix:/run/hister/hister.sock --server-url https://hister.example.com
+```
+
+You can also set `HISTER__SERVER__ADDRESS=unix:/run/hister/hister.sock` and `HISTER__SERVER__BASE_URL=https://hister.example.com`. `HISTER_PORT` is ignored for Unix socket addresses.
+
+An explicit `base_url` is required because a socket path cannot provide the public HTTP URL. Browsers, the extension, and Hister CLI clients connect through the reverse proxy at that URL.
+
+Create the parent directory before starting Hister. Its owner must be able to create the socket, and the proxy user must be able to traverse the directory and connect to the socket. Socket permissions follow the process umask. For example, a directory owned by Hister with a group shared by the proxy, mode `0750`, and umask `0007` allows the proxy group to connect on Linux. Restrict directory access as well, since some systems do not enforce socket file permissions. With systemd, `RuntimeDirectory=hister`, `RuntimeDirectoryMode=0750`, and `UMask=0007` can provide this setup when the service group is shared with the proxy.
+
+For [Caddy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#upstream-addresses), use the socket as the upstream:
+
+```text
+hister.example.com {
+    reverse_proxy unix//run/hister/hister.sock
+}
+```
+
+To check the socket directly:
+
+```bash
+curl --unix-socket /run/hister/hister.sock http://localhost/api/config
+```
+
+Hister removes its socket when it shuts down on `SIGINT` or `SIGTERM`. It refuses to replace an existing file or socket. After an unclean shutdown, remove a leftover socket only after confirming that no running process uses it.
+
 ## Monitoring
 
 Enable `server.metrics: true` to expose operational statistics for Prometheus. The endpoint follows your configured base URL and authentication settings, and requires an administrator in multiple user mode. See [Monitoring](monitoring) for scrape configuration and metric definitions.

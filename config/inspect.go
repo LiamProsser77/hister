@@ -86,7 +86,7 @@ func (c *Config) Validate() error {
 		return err
 	}
 	if err := c.UpdateBaseURL(c.Server.BaseURL); err != nil {
-		return errors.New("invalid server.address or server.base_url; set an explicit base URL when listening on all interfaces")
+		return errors.New("invalid server.address or server.base_url; set an explicit base URL when listening on all interfaces or a Unix socket")
 	}
 	u := c.parsedBaseURL
 	if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
