@@ -1171,9 +1171,13 @@ so Hister never continues while silently ignoring the proxy.
 
 The `backend_options` map passes configuration to the selected backend. Each backend validates its own options and rejects unknown keys.
 
-**`http` backend** — no backend-specific options supported.
+**`http` backend**: no backend specific options supported.
 
 **`chromedp` backend**:
+
+Launches Chrome or Chromium on the machine running `hister index`. Install the browser there and
+use `exec_path` if it is not found automatically. This backend launches its own browser process;
+Hister does not currently expose an option to connect it to a remote CDP socket.
 
 <ConfigReference items={chromedpOptions} scopes={['client']} />
 
@@ -1188,21 +1192,21 @@ crawler:
 
 **`bidi` backend** (WebDriver BiDi):
 
-Connects to an **already-running** browser that exposes a [WebDriver BiDi](https://w3c.github.io/webdriver-bidi/) WebSocket endpoint. This is the W3C-standard automation protocol supported by Firefox (≥ 102), Chrome (≥ 106), Edge, and other modern browsers. Unlike `chromedp`, the `bidi` backend does **not** launch a browser process — it reuses one you have started yourself (headless or not).
+Connects to an already running browser that exposes a
+[WebDriver BiDi](https://w3c.github.io/webdriver-bidi/) WebSocket endpoint. Hister opens the supplied
+WebSocket and sends `session.new`; it does not launch a browser or create a session through a
+WebDriver HTTP server. Firefox supports this direct connection at `/session`.
+
+Chrome and Chromium's `--remote-debugging-port` exposes the Chrome DevTools Protocol (CDP).
+That socket cannot be used as a BiDi endpoint. Use Hister's `chromedp` backend for a local Chrome
+or Chromium installation.
+
+See [Firefox with BiDi](crawler#firefox-with-bidi) for browser startup and indexing commands, or
+[browser backends with Docker](docker#browser-backends-with-docker) when the server is containerized.
 
 <ConfigReference items={bidiOptions} scopes={['client']} />
 
-Start your browser with BiDi enabled, for example:
-
-```bash
-# Firefox
-firefox --remote-debugging-port 9222
-
-# Chrome / Chromium
-chromium --remote-debugging-port=9222
-```
-
-Then configure Hister to use it:
+Apply these settings to the configuration used by the indexing command:
 
 ```yaml
 crawler:
@@ -1214,7 +1218,8 @@ crawler:
   timeout: 15
 ```
 
-Or using a full socket URL:
+The `host` and `port` options above produce `ws://127.0.0.1:9222/session`. Alternatively, specify
+the full socket URL, including `/session`. When `socket` is set, it overrides `host` and `port`:
 
 ```yaml
 crawler:
