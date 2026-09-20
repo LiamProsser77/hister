@@ -48,6 +48,18 @@ Already indexed URLs are skipped unless `--force` is present:
 hister index --force https://example.com/a
 ```
 
+Use `--ignore-rules` to explicitly save submitted documents despite URL skip rules.
+The saved override also protects them from skip rules during `hister reindex`.
+Combine it with `--force` to fetch and mark a URL that is already indexed:
+
+```bash
+hister index --ignore-rules --force https://example.com/a
+```
+
+The override applies to every document submitted by the invocation, including recursive
+crawls and URL lists. Pass it again when resuming a job with `--job-id`; it is not stored
+as a crawl job setting. Robots rules, crawl filters, and sensitive content checks still apply.
+
 Direct indexing supports the same backend, header, cookie, timeout, ownership, and labeling flags
 as persistent crawling.
 
@@ -348,6 +360,7 @@ These flags control how fetched documents are added to Hister:
 | -------------------- | ----------------------------------------------------------------------------------- |
 | `--label VALUE`      | Attach a label to documents indexed by this run.                                    |
 | `--force`            | Fetch and reindex URLs even when they already exist.                                |
+| `--ignore-rules`     | Bypass URL skip rules and preserve submitted documents during index rebuilds.       |
 | `--allow-sensitive`  | Bypass sensitive content checks for the indexed documents.                          |
 | `--global`           | Make documents available to all users. Requires an administrator in multiuser mode. |
 | `--user-id ID`       | Index documents for a specific user. Requires an administrator in multiuser mode.   |

@@ -77,9 +77,7 @@ func importBookmarks(cmd *cobra.Command, _ []string) {
 	}
 
 	loadBrowserImportSkipRules()
-	isSkip := func(u string) bool {
-		return !cfg.App.UserHandling && cfg.Rules.IsSkip(u)
-	}
+	isSkip := browserImportSkipChecker(cmd)
 
 	var groups []urlImportGroup
 	for _, store := range stores {

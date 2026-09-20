@@ -134,6 +134,19 @@ func addServiceImportFlags(cmd *cobra.Command, serviceName, tokenEnv string) {
 	cmd.Flags().String("api-token", "", serviceName+" API token (default: "+tokenEnv+")")
 }
 
+const ignoreRulesFlagUsage = "Bypass URL indexing rules and preserve submitted documents during reindexing"
+
+func documentSubmissionClientOptions(cmd *cobra.Command) []client.Option {
+	var options []client.Option
+	if allowSensitive, _ := cmd.Flags().GetBool("allow-sensitive"); allowSensitive {
+		options = append(options, client.WithAllowSensitive())
+	}
+	if ignoreRules, _ := cmd.Flags().GetBool("ignore-rules"); ignoreRules {
+		options = append(options, client.WithIgnoreRules())
+	}
+	return options
+}
+
 func targetUserIDClientOptions(cmd *cobra.Command, global bool) []client.Option {
 	targetUserID, _ := cmd.Flags().GetUint("user-id")
 	userIDChanged := cmd.Flags().Changed("user-id")
@@ -322,6 +335,7 @@ func init() {
 	importCmd.AddCommand(importShaarliCmd)
 	importCmd.AddCommand(importWallabagCmd)
 	importCmd.PersistentFlags().String("label", "", "Label to attach to all imported documents")
+	importCmd.PersistentFlags().Bool("ignore-rules", false, ignoreRulesFlagUsage)
 
 	listenCmd.Flags().StringP("address", "a", dcfg.Server.Address, "Listen address (host:port or unix:/absolute/path; Unix sockets require --server-url or server.base_url)")
 	listenCmd.Flags().Bool("public", false, "allow unauthenticated access to public search interfaces")

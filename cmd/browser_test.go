@@ -8,7 +8,32 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/asciimoo/hister/config"
 )
+
+func TestBrowserImportExplicitOverrideIncludesSkippedURLs(t *testing.T) {
+	oldCfg := cfg
+	t.Cleanup(func() { cfg = oldCfg })
+	cfg = config.CreateDefaultConfig()
+	cfg.Rules = &config.Rules{Skip: &config.Rule{ReStrs: []string{`^https://blocked\.example/`}}}
+	if err := cfg.Rules.Skip.Compile(); err != nil {
+		t.Fatal(err)
+	}
+	for _, enabled := range []bool{false, true} {
+		cmd := &cobra.Command{Use: "browser"}
+		cmd.Flags().Bool("ignore-rules", enabled, "")
+		isSkip := browserImportSkipChecker(cmd)
+		if got := isSkip("https://blocked.example/article"); got == enabled {
+			t.Errorf("ignore-rules=%v: blocked URL skipped=%v", enabled, got)
+		}
+		if isSkip("https://allowed.example/article") {
+			t.Error("unmatched URL was skipped")
+		}
+	}
+}
 
 func TestPrepareBrowserImportsContinuesAfterUnusableDatabase(t *testing.T) {
 	dir := t.TempDir()

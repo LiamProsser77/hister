@@ -23,6 +23,12 @@ in the browser extension or use its indexing shortcut. This explicitly overrides
 skip rules for that submission and saves the choice with the document, so the
 page survives `hister reindex`. Automatic submissions still respect the rule.
 
+From the command line, use `--ignore-rules` with `hister index` or any `hister import`
+subcommand to save the same explicit override with each submitted document. For an
+already indexed URL, combine `hister index --ignore-rules` with `--force` so that the
+document is submitted again. The override does not bypass sensitive content checks,
+robots rules, or crawl and file selection filters.
+
 API clients can set `metadata.ignore_skip_rules` to the boolean `true` in JSON
 documents submitted to `/api/add` or `/add`. For `/api/add_pdf`, it belongs inside
 `document.metadata`; for `/api/batch`, each add operation has its own metadata.

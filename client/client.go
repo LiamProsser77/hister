@@ -24,6 +24,7 @@ type Client struct {
 	accessToken    string
 	targetUserID   *uint
 	allowSensitive bool
+	ignoreRules    bool
 	batchLimitOnce sync.Once
 	batchBodyBytes int64
 }
@@ -63,6 +64,12 @@ func WithAccessToken(token string) Option {
 
 func WithAllowSensitive() Option {
 	return func(c *Client) { c.allowSensitive = true }
+}
+
+// WithIgnoreRules marks submitted documents as explicitly saved, bypassing URL
+// indexing rules on submission and on subsequent index rebuilds.
+func WithIgnoreRules() Option {
+	return func(c *Client) { c.ignoreRules = true }
 }
 
 // WithMaxBatchBodyBytes overrides batch capability discovery. It is primarily
