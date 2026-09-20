@@ -48,8 +48,8 @@ Already indexed URLs are skipped unless `--force` is present:
 hister index --force https://example.com/a
 ```
 
-Use `--ignore-rules` to explicitly save submitted documents despite URL skip rules.
-The saved override also protects them from skip rules during `hister reindex`.
+Use `--ignore-rules` to explicitly save submitted documents despite URL allow and skip rules.
+The saved override also protects them from allow and skip rules during `hister reindex`.
 Combine it with `--force` to fetch and mark a URL that is already indexed:
 
 ```bash
@@ -356,16 +356,16 @@ described above.
 
 These flags control how fetched documents are added to Hister:
 
-| Flag                 | Behavior                                                                            |
-| -------------------- | ----------------------------------------------------------------------------------- |
-| `--label VALUE`      | Attach a label to documents indexed by this run.                                    |
-| `--force`            | Fetch and reindex URLs even when they already exist.                                |
-| `--ignore-rules`     | Bypass URL skip rules and preserve submitted documents during index rebuilds.       |
-| `--allow-sensitive`  | Bypass sensitive content checks for the indexed documents.                          |
-| `--global`           | Make documents available to all users. Requires an administrator in multiuser mode. |
-| `--user-id ID`       | Index documents for a specific user. Requires an administrator in multiuser mode.   |
-| `--format FORMAT`    | Print the indexing summary as `text`, `json`, `jsonl`, or `csv`.                    |
-| `--failed-urls PATH` | Save failed URLs, one per line, replacing the file's contents.                      |
+| Flag                 | Behavior                                                                                |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `--label VALUE`      | Attach a label to documents indexed by this run.                                        |
+| `--force`            | Fetch and reindex URLs even when they already exist.                                    |
+| `--ignore-rules`     | Bypass URL allow and skip rules and preserve submitted documents during index rebuilds. |
+| `--allow-sensitive`  | Bypass sensitive content checks for the indexed documents.                              |
+| `--global`           | Make documents available to all users. Requires an administrator in multiuser mode.     |
+| `--user-id ID`       | Index documents for a specific user. Requires an administrator in multiuser mode.       |
+| `--format FORMAT`    | Print the indexing summary as `text`, `json`, `jsonl`, or `csv`.                        |
+| `--failed-urls PATH` | Save failed URLs, one per line, replacing the file's contents.                          |
 
 `--global` and `--user-id` cannot be used together.
 

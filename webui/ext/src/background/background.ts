@@ -109,44 +109,60 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   tabSensitiveState.delete(tabId);
 });
 
-// --- Skip rules cache ---
+// --- Indexing rules cache ---
 
-interface SkipRulesCache {
-  patterns: RegExp[];
+interface IndexingRules {
+  allow: (RegExp | null)[];
+  skip: (RegExp | null)[];
+}
+
+interface IndexingRulesCache {
+  rules: IndexingRules;
   timestamp: number;
 }
 
-// TODO find better way to keep skip rules updated
-// Perhaps a websocket connection to the server which pushes skip rule changes?
-const SKIP_RULES_TTL = 60_000;
-let skipRulesCache: SkipRulesCache | null = null;
+const INDEXING_RULES_TTL = 60_000;
+let indexingRulesCache: IndexingRulesCache | null = null;
 
-async function getSkipPatterns(
+function compilePatterns(patterns: string[]): (RegExp | null)[] {
+  return patterns.map((pattern) => {
+    try {
+      return new RegExp(pattern, 'u');
+    } catch (_) {
+      // Go patterns unsupported by JavaScript are evaluated by the server.
+      return null;
+    }
+  });
+}
+
+function isURLSkipped(url: string, rules: IndexingRules): boolean {
+  return (
+    (rules.allow.length > 0 && !rules.allow.some((re) => re === null || re.test(url))) ||
+    rules.skip.some((re) => re?.test(url))
+  );
+}
+
+async function getIndexingRules(
   serverURL: string,
   customHeaders: CustomHeader[],
-): Promise<RegExp[]> {
+): Promise<IndexingRules> {
   const now = Date.now();
-  if (skipRulesCache && now - skipRulesCache.timestamp < SKIP_RULES_TTL) {
-    return skipRulesCache.patterns;
+  if (indexingRulesCache && now - indexingRulesCache.timestamp < INDEXING_RULES_TTL) {
+    return indexingRulesCache.rules;
   }
   try {
     const u = serverURL.endsWith('/') ? serverURL : serverURL + '/';
     const r = await fetchAPI(u + 'api/rules', { customHeaders });
-    if (!r.ok) return skipRulesCache?.patterns ?? [];
+    if (!r.ok) return indexingRulesCache?.rules ?? { allow: [], skip: [] };
     const data = await r.json();
-    const patterns: RegExp[] = ((data.skip as string[]) ?? [])
-      .map((s) => {
-        try {
-          return new RegExp(s);
-        } catch (_) {
-          return null;
-        }
-      })
-      .filter((p): p is RegExp => p !== null);
-    skipRulesCache = { patterns, timestamp: now };
-    return patterns;
+    const rules = {
+      allow: compilePatterns(data.allow ?? []),
+      skip: compilePatterns(data.skip ?? []),
+    };
+    indexingRulesCache = { rules, timestamp: now };
+    return rules;
   } catch (_) {
-    return skipRulesCache?.patterns ?? [];
+    return indexingRulesCache?.rules ?? { allow: [], skip: [] };
   }
 }
 
@@ -203,7 +219,7 @@ async function saveSkipRule(
       throw new Error(`Failed to delete documents: ${deleteResp.status}`);
     }
   }
-  skipRulesCache = null;
+  indexingRulesCache = null;
 }
 
 // --- Tab icon state ---
@@ -251,8 +267,8 @@ async function updateTabIcon(tabId: number, url: string): Promise<void> {
     return;
   }
 
-  const patterns = await getSkipPatterns(serverURL, customHeaders);
-  if (patterns.some((re) => re.test(url))) {
+  const rules = await getIndexingRules(serverURL, customHeaders);
+  if (isURLSkipped(url, rules)) {
     await setGreyIcon(tabId);
   } else {
     setNormalIcon(tabId);
@@ -299,8 +315,8 @@ async function indexPDFTab(
 
   const customHeaders = getDocumentSubmissionHeaders(data);
 
-  const patterns = await getSkipPatterns(serverURL, customHeaders);
-  if (!ignoreSkipRules && patterns.some((re) => re.test(tab.url!))) {
+  const rules = await getIndexingRules(serverURL, customHeaders);
+  if (!ignoreSkipRules && isURLSkipped(tab.url!, rules)) {
     await setGreyIcon(tabId);
     return { status: 'ok', status_code: 406 };
   }
@@ -341,7 +357,7 @@ async function indexPDFTab(
         clearBadge(tabId);
       }
     } else if (r.status === 406) {
-      skipRulesCache = null;
+      indexingRulesCache = null;
       setGreyIcon(tabId);
     } else if (r.status === 422) {
       tabSensitiveState.set(tabId, tab.url!);
@@ -382,7 +398,7 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
     'histerCookies' in changes ||
     'histerCustomHeaders' in changes;
   if (!(connectionChanged || 'indexingEnabled' in changes || 'showIndexedBadge' in changes)) return;
-  if (connectionChanged) skipRulesCache = null;
+  if (connectionChanged) indexingRulesCache = null;
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab?.id && tab.url) await updateTabIcon(tab.id, tab.url);
@@ -526,8 +542,8 @@ function cjsMsgHandler(request, sender, sendResponse) {
           return;
         }
         const baseURL = u.endsWith('/') ? u : u + '/';
-        getSkipPatterns(baseURL, customHeaders).then((patterns) => {
-          sendResponse({ isSkipped: patterns.some((re) => re.test(request.url)) });
+        getIndexingRules(baseURL, customHeaders).then((rules) => {
+          sendResponse({ isSkipped: isURLSkipped(request.url, rules) });
         });
         return true;
       }
@@ -545,7 +561,15 @@ function cjsMsgHandler(request, sender, sendResponse) {
           sendResponse({ status: 'disabled' });
           return;
         }
-        chrome.storage.local.get(['histerLabel']).then((labelData) => {
+        chrome.storage.local.get(['histerLabel']).then(async (labelData) => {
+          if (request.action !== 'reindex') {
+            const rules = await getIndexingRules(u, customHeaders);
+            if (isURLSkipped(request.pageData.url, rules)) {
+              await setGreyIcon(sender.tab.id);
+              sendResponse({ status: 'ok', status_code: 406 });
+              return;
+            }
+          }
           const pageData = { ...request.pageData };
           if (request.action === 'reindex') {
             pageData.metadata = { ...pageData.metadata, ignore_skip_rules: true };
@@ -563,8 +587,8 @@ function cjsMsgHandler(request, sender, sendResponse) {
                   clearBadge(sender.tab.id);
                 }
               } else if (r.status === 406) {
-                // URL matched a server-side skip rule; invalidate cache and grey out
-                skipRulesCache = null;
+                // Server indexing rules rejected the URL; invalidate cache and grey out
+                indexingRulesCache = null;
                 setGreyIcon(sender.tab.id);
               } else if (r.status === 422) {
                 // Document rejected due to sensitive content; not an error

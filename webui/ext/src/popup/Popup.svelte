@@ -426,7 +426,7 @@
       <div class="border-brutal-border border-b-[3px] px-5 py-4">
         {#if isPageSkipped}
           <p class="text-text-brand mb-3 text-sm">
-            A skip rule blocks automatic indexing. You can still index this page manually.
+            Indexing rules block automatic indexing. You can still index this page manually.
           </p>
         {/if}
         <Button

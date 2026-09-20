@@ -2,9 +2,10 @@
 
 import { apiFetch } from '$lib/api';
 
-export type RuleType = 'skip' | 'priority' | 'versioning';
+export type RuleType = 'allow' | 'skip' | 'priority' | 'versioning';
 
 interface RuleLists {
+  allow: string[];
   skip: string[];
   priority: string[];
   versioning: string[];
@@ -28,6 +29,7 @@ export async function fetchRules(): Promise<RulesData> {
   if (!response.ok) throw await responseError(response, 'Failed to load rules');
   const data = await response.json();
   return {
+    allow: orDefault(data.allow, []),
     skip: orDefault(data.skip, []),
     priority: orDefault(data.priority, []),
     versioning: orDefault(data.versioning, []),
@@ -37,6 +39,7 @@ export async function fetchRules(): Promise<RulesData> {
 
 export async function saveRuleLists(rules: RuleLists): Promise<void> {
   const formData = new URLSearchParams();
+  formData.set('allow', rules.allow.join('\n'));
   formData.set('skip', rules.skip.join('\n'));
   formData.set('priority', rules.priority.join('\n'));
   formData.set('versioning', rules.versioning.join('\n'));

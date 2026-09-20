@@ -18,8 +18,11 @@ func TestBrowserImportExplicitOverrideIncludesSkippedURLs(t *testing.T) {
 	oldCfg := cfg
 	t.Cleanup(func() { cfg = oldCfg })
 	cfg = config.CreateDefaultConfig()
-	cfg.Rules = &config.Rules{Skip: &config.Rule{ReStrs: []string{`^https://blocked\.example/`}}}
-	if err := cfg.Rules.Skip.Compile(); err != nil {
+	cfg.Rules = &config.Rules{
+		Allow: &config.Rule{ReStrs: []string{`^https://allowed\.example/`}},
+		Skip:  &config.Rule{ReStrs: []string{`^https://blocked\.example/`}},
+	}
+	if err := cfg.Rules.Compile(); err != nil {
 		t.Fatal(err)
 	}
 	for _, enabled := range []bool{false, true} {
@@ -31,6 +34,9 @@ func TestBrowserImportExplicitOverrideIncludesSkippedURLs(t *testing.T) {
 		}
 		if isSkip("https://allowed.example/article") {
 			t.Error("unmatched URL was skipped")
+		}
+		if got := isSkip("https://outside.example/article"); got == enabled {
+			t.Errorf("ignore-rules=%v: URL outside allow list skipped=%v", enabled, got)
 		}
 	}
 }

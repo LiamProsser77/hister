@@ -61,7 +61,7 @@ func (e *Endpoint) Pattern() string {
 // Endpoints contains all registered API endpoints.
 var Endpoints []*Endpoint
 
-const skipRulesOverrideDescription = " Set metadata.ignore_skip_rules to boolean true in the submitted JSON document to bypass URL skip rules. The saved metadata also bypasses skip rules on import and reindex. Other validation still applies."
+const skipRulesOverrideDescription = " Set metadata.ignore_skip_rules to boolean true in the submitted JSON document to bypass URL allow and skip rules. The saved metadata also bypasses these rules on import and reindex. Other validation still applies."
 
 func documentMetadataSchema() *JSONSchemaField {
 	return &JSONSchemaField{
@@ -72,7 +72,7 @@ func documentMetadataSchema() *JSONSchemaField {
 			{
 				Name:        "ignore_skip_rules",
 				Type:        "bool",
-				Description: "Explicitly bypass URL skip rules for this document, including during index rebuilds. Only boolean true enables the override.",
+				Description: "Explicitly bypass URL allow and skip rules for this document, including during index rebuilds. Only boolean true enables the override.",
 			},
 		},
 	}
@@ -602,7 +602,7 @@ func init() {
 			Method:       GET,
 			CSRFRequired: true,
 			Handler:      serveRules,
-			Description:  "Retrieve current skip, priority, and versioning rules and query aliases",
+			Description:  "Retrieve current allow, skip, priority, and versioning rules and query aliases",
 		},
 		{
 			Name:         "Save rules",
@@ -610,8 +610,14 @@ func init() {
 			Method:       POST,
 			CSRFRequired: true,
 			Handler:      serveRules,
-			Description:  "Update the supplied skip, priority, or versioning rules. Omitted rule groups remain unchanged. Accepts application/x-www-form-urlencoded.",
+			Description:  "Update the supplied allow, skip, priority, or versioning rules. Omitted rule groups remain unchanged. Accepts application/x-www-form-urlencoded.",
 			Args: []*EndpointArg{
+				{
+					Name:        "allow",
+					Type:        "string",
+					Required:    false,
+					Description: "Space-separated URL regex patterns. When nonempty, a URL must match at least one to be indexed or retained during reindex. Skip rules take precedence. Explicit manual overrides bypass both rule groups.",
+				},
 				{
 					Name:        "skip",
 					Type:        "string",

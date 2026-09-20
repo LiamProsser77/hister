@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/asciimoo/hister/client"
+	"github.com/asciimoo/hister/config"
 	"github.com/asciimoo/hister/server/crawler"
 	"github.com/asciimoo/hister/server/model"
 
@@ -288,16 +289,17 @@ func browserImportSkipChecker(cmd *cobra.Command) func(string) bool {
 }
 
 func importDB(databases []DBToImport, cmd *cobra.Command, startDate *time.Time, kind string) {
-	// Fetch skip rules from the server.
+	// Fetch URL indexing rules from the server.
 	c := newClient()
 	resp, err := c.FetchRules()
 	if err != nil {
-		log.Error().Err(err).Msg("Unable to obtain skip rules from server; using local ones instead")
+		log.Error().Err(err).Msg("Unable to obtain indexing rules from server; using local ones instead")
 	} else {
 		// TODO: let the user know that their local rules are being overwritten?
 		cfg.Rules.Skip.ReStrs = resp.Skip
-		if err := cfg.Rules.Skip.Compile(); err != nil {
-			log.Error().Err(err).Msg("Unable to compile skip rules from server")
+		cfg.Rules.Allow = &config.Rule{ReStrs: resp.Allow}
+		if err := cfg.Rules.Compile(); err != nil {
+			log.Error().Err(err).Msg("Unable to compile indexing rules from server")
 			return
 		}
 	}

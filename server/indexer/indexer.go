@@ -67,6 +67,7 @@ type Indexer struct {
 	embeddingQueue    *embeddingQueue
 	embeddingWorkers  int
 	disablePreviews   bool
+	userHandling      bool
 	keepStopwords     bool
 	directories       []*config.Directory
 	maxFileSize       int64
@@ -256,6 +257,13 @@ type documentWritePlan struct {
 
 type documentWriteFunc func(*document.Document, documentWritePlan) error
 
+type addOptions struct {
+	rules *config.Rules
+}
+
+// AddOption configures a document submission and all documents extracted from it.
+type AddOption func(*addOptions)
+
 type indexBatch struct {
 	index bleve.Index
 	batch *bleve.Batch
@@ -355,6 +363,7 @@ func New(cfg *config.Config) (*Indexer, error) {
 		return nil, fmt.Errorf("store initial embedding configuration metadata: %w", err)
 	}
 	idx.disablePreviews = cfg.App.DisablePreviews
+	idx.userHandling = cfg.App.UserHandling
 	idx.directories = cfg.Indexer.Directories
 	idx.maxFileSize = defaultMaxFileSize
 	idx.sensitivePattern = sensitivePattern
@@ -687,6 +696,7 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 	tmpIdx.sensitivePattern = idx.sensitivePattern
 	// Propagate the disablePreviews flag so the temp indexer skips HTML storage too.
 	tmpIdx.disablePreviews = idx.disablePreviews
+	tmpIdx.userHandling = idx.userHandling
 	// The data store is shared between the live and temp indexers so that
 	// content-addressed files written during reindex are immediately usable
 	// after the rename step. No data directory rename is needed.
@@ -732,6 +742,7 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 	}
 	batchSize := 50
 	processed := 0
+	rulesByUser := map[uint]*config.Rules{0: rules}
 	for subIdxName, subIdx := range sourceIndexes {
 		if err := ctx.Err(); err != nil {
 			return abortReindex(err)
@@ -805,9 +816,24 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 						return abortReindex(err)
 					}
 				}
-				if !d.IgnoreSkipRules() && rules.IsSkip(d.URL) {
-					log.Info().Str("URL", d.URL).Msg("Dropping URL that has since been added to skip rules.")
-					continue
+				documentRules := rules
+				if !d.IgnoreSkipRules() {
+					if idx.userHandling {
+						var ok bool
+						documentRules, ok = rulesByUser[d.UserID]
+						if !ok {
+							var err error
+							documentRules, err = model.GetUserRules(d.UserID)
+							if err != nil {
+								return abortReindex(fmt.Errorf("load rules for user %d: %w", d.UserID, err))
+							}
+							rulesByUser[d.UserID] = documentRules
+						}
+					}
+					if documentRules.IsSkip(d.URL) {
+						log.Info().Str("URL", d.URL).Msg("Dropping URL excluded by allow or skip rules.")
+						continue
+					}
 				}
 				d.Added = origAdded
 				if origUpdated == 0 {
@@ -815,7 +841,7 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 				} else {
 					d.Updated = origUpdated
 				}
-				if err := b.Add(d); err != nil {
+				if err := b.AddContext(ctx, d, WithRules(documentRules)); err != nil {
 					return abortReindex(err)
 				}
 			}
@@ -859,6 +885,7 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 		return err
 	}
 	replacement.maxFileSize = idx.maxFileSize
+	replacement.userHandling = idx.userHandling
 	replacement.sensitivePattern = idx.sensitivePattern
 	replacement.semanticConfig = idx.semanticConfig
 	idx.adopt(replacement)
@@ -1023,17 +1050,33 @@ func embedDocumentChunks(ctx context.Context, idx *Indexer, d *document.Document
 	return nil
 }
 
+// WithRules applies URL allow and skip rules to each document before indexing.
+// Explicit manual overrides bypass these rules and propagate to extra documents.
+func WithRules(rules *config.Rules) AddOption {
+	return func(options *addOptions) {
+		options.rules = rules
+	}
+}
+
+func newAddOptions(options []AddOption) addOptions {
+	var result addOptions
+	for _, option := range options {
+		option(&result)
+	}
+	return result
+}
+
 func (i *Indexer) Add(d *document.Document) error {
 	return i.AddContext(context.Background(), d)
 }
 
 // AddContext validates and indexes a document while honoring caller
 // cancellation during document processing.
-func (i *Indexer) AddContext(ctx context.Context, d *document.Document) error {
+func (i *Indexer) AddContext(ctx context.Context, d *document.Document, options ...AddOption) error {
 	if err := i.validateFileDocument(d); err != nil {
 		return err
 	}
-	return i.AddDocumentContext(ctx, d)
+	return i.AddDocumentContext(ctx, d, options...)
 }
 
 func (i *Indexer) processDocument(ctx context.Context, d *document.Document) error {
@@ -1146,12 +1189,22 @@ func (i *Indexer) AddDocument(d *document.Document) error {
 	return i.AddDocumentContext(context.Background(), d)
 }
 
-func (i *Indexer) AddDocumentContext(ctx context.Context, d *document.Document) error {
-	return i.addDocument(ctx, d, true, i.recordIndexingMetric, i.applyDocumentWrite)
+func (i *Indexer) AddDocumentContext(ctx context.Context, d *document.Document, options ...AddOption) error {
+	return i.addDocument(ctx, d, true, newAddOptions(options), i.recordIndexingMetric, i.applyDocumentWrite)
 }
 
-func (i *Indexer) addDocument(ctx context.Context, d *document.Document, incrementAddCount bool, recordMetric func(string, time.Time), write documentWriteFunc) error {
+func (i *Indexer) addDocument(ctx context.Context, d *document.Document, incrementAddCount bool, options addOptions, recordMetric func(string, time.Time), write documentWriteFunc) error {
 	start := time.Now()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	// Capture the submission's override before storage preparation can restore a
+	// saved override. Automatic updates must still filter newly extracted URLs.
+	ignoreRules := d.IgnoreSkipRules()
+	if !ignoreRules && options.rules.IsSkip(d.URL) {
+		log.Debug().Str("url", d.URL).Msg("skip indexing document excluded by rules")
+		return nil
+	}
 	plan, err := i.prepareDocumentWrite(ctx, d, incrementAddCount)
 	if err != nil {
 		return err
@@ -1171,10 +1224,10 @@ func (i *Indexer) addDocument(ctx context.Context, d *document.Document, increme
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if d.IgnoreSkipRules() {
+		if ignoreRules {
 			extra.SetIgnoreSkipRules(true)
 		}
-		if err := i.addDocument(ctx, extra, false, recordMetric, write); err != nil {
+		if err := i.addDocument(ctx, extra, false, options, recordMetric, write); err != nil {
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}
@@ -1572,6 +1625,7 @@ func (i *Indexer) adopt(replacement *Indexer) {
 	i.embeddingQueue = replacement.embeddingQueue
 	i.embeddingWorkers = replacement.embeddingWorkers
 	i.disablePreviews = replacement.disablePreviews
+	i.userHandling = replacement.userHandling
 	i.keepStopwords = replacement.keepStopwords
 	i.directories = replacement.directories
 	i.maxFileSize = replacement.maxFileSize
@@ -1610,11 +1664,11 @@ func (b *MultiBatch) Add(d *document.Document) error {
 
 // AddContext stages a document while honoring caller cancellation during
 // document processing.
-func (b *MultiBatch) AddContext(ctx context.Context, d *document.Document) error {
+func (b *MultiBatch) AddContext(ctx context.Context, d *document.Document, options ...AddOption) error {
 	if err := b.indexer.validateFileDocument(d); err != nil {
 		return err
 	}
-	return b.indexer.addDocument(ctx, d, b.incrementAddCount, b.recordIndexingMetric, b.applyDocumentWrite)
+	return b.indexer.addDocument(ctx, d, b.incrementAddCount, newAddOptions(options), b.recordIndexingMetric, b.applyDocumentWrite)
 }
 
 func (b *MultiBatch) recordIndexingMetric(documentType string, startedAt time.Time) {

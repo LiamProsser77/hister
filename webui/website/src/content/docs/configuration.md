@@ -1120,26 +1120,26 @@ to cycle modes, or use `ctrl+t` for the full theme picker.
 
 TUI keyboard shortcuts are configured in `tui.yaml` under the `hotkeys` section. See the [tui.yaml example](#tui-configuration) above.
 
-| Action            | Description                                                                 |
-| ----------------- | --------------------------------------------------------------------------- |
-| `quit`            | Exit the TUI                                                                |
-| `toggle_help`     | Show/hide the keybindings help overlay                                      |
-| `toggle_focus`    | Change focus or return to the previous workspace                            |
-| `scroll_up`       | Move selection up                                                           |
-| `scroll_down`     | Move selection down                                                         |
-| `open_result`     | Open, edit, or submit the focused item                                      |
-| `copy_result`     | Copy the selected URL                                                       |
-| `toggle_preview`  | Show/hide selected result details                                           |
-| `edit_label`      | Edit the selected document label                                            |
-| `delete_result`   | Delete the selected entry from the index                                    |
-| `toggle_theme`    | Open the interactive theme picker overlay                                   |
-| `toggle_settings` | Open appearance and keybinding settings                                     |
-| `toggle_sort`     | Toggle domain-based sorting for search results                              |
-| `toggle_semantic` | Toggle semantic search when enabled                                         |
-| `tab_search`      | Switch to the Search tab                                                    |
-| `tab_history`     | Switch to the History tab (view recent searches)                            |
-| `tab_rules`       | Switch to the Rules tab (manage skip/priority/versioning rules and aliases) |
-| `tab_add`         | Switch to the Add tab (manually add URLs and multiline text)                |
+| Action            | Description                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| `quit`            | Exit the TUI                                                                      |
+| `toggle_help`     | Show/hide the keybindings help overlay                                            |
+| `toggle_focus`    | Change focus or return to the previous workspace                                  |
+| `scroll_up`       | Move selection up                                                                 |
+| `scroll_down`     | Move selection down                                                               |
+| `open_result`     | Open, edit, or submit the focused item                                            |
+| `copy_result`     | Copy the selected URL                                                             |
+| `toggle_preview`  | Show/hide selected result details                                                 |
+| `edit_label`      | Edit the selected document label                                                  |
+| `delete_result`   | Delete the selected entry from the index                                          |
+| `toggle_theme`    | Open the interactive theme picker overlay                                         |
+| `toggle_settings` | Open appearance and keybinding settings                                           |
+| `toggle_sort`     | Toggle domain-based sorting for search results                                    |
+| `toggle_semantic` | Toggle semantic search when enabled                                               |
+| `tab_search`      | Switch to the Search tab                                                          |
+| `tab_history`     | Switch to the History tab (view recent searches)                                  |
+| `tab_rules`       | Switch to the Rules tab (manage allow/skip/priority/versioning rules and aliases) |
+| `tab_add`         | Switch to the Add tab (manually add URLs and multiline text)                      |
 
 ## `crawler` Section
 

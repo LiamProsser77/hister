@@ -79,7 +79,7 @@
     return `${ruleCount(addedCount)} added; skipped ${duplicateMessage}.`;
   }
 
-  let rules: RulesData = $state({ skip: [], priority: [], versioning: [], aliases: {} });
+  let rules: RulesData = $state({ allow: [], skip: [], priority: [], versioning: [], aliases: {} });
   let loading = $state(true);
   let saving = $state(false);
   let message = $state('');
@@ -133,7 +133,7 @@
   const aliasSort = new SortState<'keyword' | 'value'>();
   const ruleSort = new SortState<'pattern' | 'type'>();
 
-  const existingRulePatterns = $derived([...rules.skip, ...rules.priority, ...rules.versioning]);
+  const existingRulePatterns = $derived(rules[newRuleType]);
   const bulkRuleSummary = $derived.by(() =>
     parseRulePatterns(bulkRulePatterns, existingRulePatterns),
   );
@@ -141,6 +141,7 @@
   const ruleRows = $derived.by(() => {
     const rows: RuleRow[] = [];
     let addedOrder = 0;
+    for (const p of rules.allow) rows.push({ pattern: p, type: 'allow', addedOrder: addedOrder++ });
     for (const p of rules.skip) rows.push({ pattern: p, type: 'skip', addedOrder: addedOrder++ });
     for (const p of rules.priority)
       rows.push({ pattern: p, type: 'priority', addedOrder: addedOrder++ });
@@ -466,6 +467,7 @@
   function rulesWithEditedRule(row: RuleRow, pattern: string, type: RuleType): RulesData {
     const nextRules = {
       ...rules,
+      allow: [...rules.allow],
       skip: [...rules.skip],
       priority: [...rules.priority],
       versioning: [...rules.versioning],
@@ -483,12 +485,10 @@
     const trimmed = editRulePattern.trim();
     if (!trimmed) return;
     const row = ruleRows[editingRuleIndex!];
-    // Reject if the new pattern already exists elsewhere (different item)
+    // Reject duplicate patterns within the selected rule type.
     const isDuplicate =
-      (rules.skip.includes(trimmed) ||
-        rules.priority.includes(trimmed) ||
-        rules.versioning.includes(trimmed)) &&
-      trimmed !== row.pattern;
+      rules[editRuleType].includes(trimmed) &&
+      !(editRuleType === row.type && trimmed === row.pattern);
     if (isDuplicate) {
       message = `Rule "${trimmed}" already exists.`;
       isError = true;
@@ -815,6 +815,12 @@
           </div>
         </Card.Header>
 
+        <p class="font-inter text-text-brand-muted px-4 py-3 text-sm md:px-5">
+          When allow rules exist, URLs must match at least one. Skip rules take precedence.
+          Reindexing removes excluded documents, except pages explicitly saved manually. Removing
+          all allow rules restores indexing of any URL without a skip match.
+        </p>
+
         <div
           class="bg-muted-surface border-brutal-border flex items-center border-b-[3px] px-4 py-4 md:px-5 md:py-5"
         >
@@ -850,6 +856,7 @@
                   }}
                   class="bg-card-surface border-brutal-border font-space text-text-brand h-10 w-full shrink-0 cursor-pointer appearance-none border-[3px] px-3 text-center text-xs font-bold tracking-[0.5px] outline-none md:w-27.5"
                 >
+                  <option value="allow">ALLOW</option>
                   <option value="skip">SKIP</option>
                   <option value="priority">PRIORITY</option>
                   <option value="versioning">VERSION</option>
@@ -947,6 +954,7 @@
                             }}
                             class="bg-card-surface border-brutal-border font-space text-text-brand h-8 w-20 shrink-0 cursor-pointer appearance-none border-[3px] px-2 text-center text-xs font-bold tracking-[0.5px] outline-none md:w-25 md:px-3"
                           >
+                            <option value="allow">ALLOW</option>
                             <option value="skip">SKIP</option>
                             <option value="priority">PRIORITY</option>
                             <option value="versioning">VERSION</option>
@@ -973,9 +981,11 @@
                         class="font-space border-0 px-2 py-1 text-xs font-bold tracking-[0.5px] uppercase md:px-3 {row.type ===
                         'skip'
                           ? 'bg-hister-rose text-white'
-                          : row.type === 'priority'
-                            ? 'bg-hister-teal text-white'
-                            : 'bg-violet-500 text-white'}"
+                          : row.type === 'allow'
+                            ? 'bg-hister-indigo text-white'
+                            : row.type === 'priority'
+                              ? 'bg-hister-teal text-white'
+                              : 'bg-violet-500 text-white'}"
                       >
                         {row.type}
                       </Badge>

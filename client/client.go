@@ -192,7 +192,7 @@ func checkStatus(resp *http.Response) error {
 		}
 		return errWithStatus(msg)
 	case http.StatusNotAcceptable:
-		msg := "page skipped: this URL was rejected by the server (usually due to skip rules or disabled domains)"
+		msg := "page skipped: this URL was rejected by the server (usually due to allow or skip rules)"
 		if detail != "" {
 			msg += " (" + detail + ")"
 		}

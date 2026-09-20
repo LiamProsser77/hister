@@ -33,7 +33,7 @@ Use the global `--server-url` and `--token` flags when the destination Hister se
 
 Use `--label LABEL` with any import source to attach the same label to every imported document. Without this flag, labels stored in imported documents or resumed browser jobs are preserved. The default shown above is applied only when no label was supplied by the user or the imported document.
 
-Use `--ignore-rules` with any import source to explicitly save submitted documents despite URL skip rules. The saved override also protects them from skip rules during `hister reindex`. Browser imports bypass their initial URL rule filtering too. Sensitive content checks and source selection filters still apply. Documents skipped because they already exist are not changed.
+Use `--ignore-rules` with any import source to explicitly save submitted documents despite URL allow and skip rules. The saved override also protects them from allow and skip rules during `hister reindex`. Browser imports bypass their initial URL rule filtering too. Sensitive content checks and source selection filters still apply. Documents skipped because they already exist are not changed.
 
 ```bash
 hister import file --ignore-rules export.json
@@ -213,7 +213,7 @@ hister import browser bookmarks --db ~/.config/google-chrome/Default/Bookmarks
 
 Automatic detection covers Firefox, Firefox Developer Edition, Zen, Waterfox, Chrome, Chromium, Brave, Edge, Vivaldi, Opera, and Ladybird. Each browser is a separate bookmark source: Firefox-family `places.sqlite`, Chromium-family `Bookmarks` JSON, and Ladybird `Bookmarks.json`.
 
-Skip rules apply the same way they do for history import. A browser's shipped default bookmarks are not filtered out unless they match a skip rule.
+Allow and skip rules apply the same way they do for history import. A browser's shipped default bookmarks follow these same rules.
 
 Bookmark documents receive the `bookmarks` label by default. Use `--label LABEL` to replace it. `--start-date` is not supported, because it would drop bookmarks that have never been visited.
 

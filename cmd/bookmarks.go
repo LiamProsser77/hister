@@ -12,6 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"github.com/asciimoo/hister/config"
 	"github.com/asciimoo/hister/server/model"
 )
 
@@ -38,7 +39,7 @@ Supported stores:
   ladybird                 Bookmarks.json
 
 The pages are then fetched and indexed through the same crawl job used by
-browser history import. Skip rules apply the same way; there is no extra
+browser history import. Allow and skip rules apply the same way; there is no extra
 denylist for a browser's shipped default bookmarks.
 
 Use --label LABEL to replace the default bookmarks label. --start-date is not
@@ -76,7 +77,7 @@ func importBookmarks(cmd *cobra.Command, _ []string) {
 		exit(1, err.Error())
 	}
 
-	loadBrowserImportSkipRules()
+	loadBrowserImportRules()
 	isSkip := browserImportSkipChecker(cmd)
 
 	var groups []urlImportGroup
@@ -106,16 +107,17 @@ func importBookmarks(cmd *cobra.Command, _ []string) {
 	importURLGroups(cmd, groups, browserImportKindBookmarks)
 }
 
-func loadBrowserImportSkipRules() {
+func loadBrowserImportRules() {
 	c := newClient()
 	resp, err := c.FetchRules()
 	if err != nil {
-		log.Error().Err(err).Msg("Unable to obtain skip rules from server; using local ones instead")
+		log.Error().Err(err).Msg("Unable to obtain indexing rules from server; using local ones instead")
 		return
 	}
 	cfg.Rules.Skip.ReStrs = resp.Skip
-	if err := cfg.Rules.Skip.Compile(); err != nil {
-		log.Error().Err(err).Msg("Unable to compile skip rules from server")
+	cfg.Rules.Allow = &config.Rule{ReStrs: resp.Allow}
+	if err := cfg.Rules.Compile(); err != nil {
+		log.Error().Err(err).Msg("Unable to compile indexing rules from server")
 	}
 }
 

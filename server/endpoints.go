@@ -756,7 +756,7 @@ func serveVersions(c *webContext) {
 	c.JSON(versions)
 }
 
-// shouldSkipSubmission checks URL skip rules unless the document carries an
+// shouldSkipSubmission checks URL allow and skip rules unless the document carries an
 // explicit override. Other document validation and authorization still apply.
 func shouldSkipSubmission(c *webContext, d *document.Document) bool {
 	return !d.IgnoreSkipRules() && c.effectiveRules().IsSkip(d.URL)
@@ -805,7 +805,7 @@ func serveAdd(c *webContext) {
 		if d.Type != document.RemoteFile && rules.IsVersioning(d.URL) {
 			existingDoc = c.Indexer.GetByURLAndUser(d.URL, d.UserID)
 		}
-		err := c.Indexer.AddContext(c.Request.Context(), d)
+		err := c.Indexer.AddContext(c.Request.Context(), d, indexer.WithRules(rules))
 		if err != nil {
 			if errors.Is(err, document.ErrSensitiveContent) {
 				log.Warn().Str("URL", d.URL).Msg("rejected document: sensitive content")
@@ -913,7 +913,7 @@ func serveAddPDF(c *webContext) {
 
 	d.UserID = submittedDocumentUserID(c)
 
-	if err := c.Indexer.AddPDF(d, pdfData); err != nil {
+	if err := c.Indexer.AddPDF(d, pdfData, indexer.WithRules(c.effectiveRules())); err != nil {
 		if errors.Is(err, document.ErrSensitiveContent) {
 			log.Warn().Str("URL", d.URL).Msg("rejected pdf document: sensitive content")
 			http.Error(c.Response, document.ErrSensitiveContent.Error(), http.StatusUnprocessableEntity)
@@ -1298,10 +1298,15 @@ func serveRules(c *webContext) {
 	rules := c.effectiveRules()
 	if m == http.MethodGet {
 		type rulesResponse struct {
+			Allow      []string          `json:"allow"`
 			Skip       []string          `json:"skip"`
 			Priority   []string          `json:"priority"`
 			Versioning []string          `json:"versioning"`
 			Aliases    map[string]string `json:"aliases"`
+		}
+		allow := []string{}
+		if rules.Allow != nil && rules.Allow.ReStrs != nil {
+			allow = rules.Allow.ReStrs
 		}
 		skip := rules.Skip.ReStrs
 		if skip == nil {
@@ -1319,7 +1324,7 @@ func serveRules(c *webContext) {
 		if aliases == nil {
 			aliases = make(map[string]string)
 		}
-		c.JSON(rulesResponse{Skip: skip, Priority: priority, Versioning: versioning, Aliases: aliases})
+		c.JSON(rulesResponse{Allow: allow, Skip: skip, Priority: priority, Versioning: versioning, Aliases: aliases})
 		return
 	}
 	if m != http.MethodPost {
@@ -1336,11 +1341,12 @@ func serveRules(c *webContext) {
 		patterns []string
 		target   **config.Rule
 	}
-	updates := make([]ruleUpdate, 0, 3)
+	updates := make([]ruleUpdate, 0, 4)
 	for _, field := range []struct {
 		label  string
 		target **config.Rule
 	}{
+		{label: "allow", target: &rules.Allow},
 		{label: "skip", target: &rules.Skip},
 		{label: "priority", target: &rules.Priority},
 		{label: "versioning", target: &rules.Versioning},
@@ -1976,7 +1982,7 @@ func serveBatch(c *webContext) {
 				results[i] = batchOpResult{Status: http.StatusNotAcceptable, Error: "url skipped by rules"}
 				continue
 			}
-			if err := batch.AddContext(c.Request.Context(), d); err != nil {
+			if err := batch.AddContext(c.Request.Context(), d, indexer.WithRules(c.effectiveRules())); err != nil {
 				if errors.Is(err, document.ErrSensitiveContent) {
 					log.Warn().Str("URL", op.URL).Msg("rejected document: sensitive content")
 					results[i] = batchOpResult{Status: http.StatusUnprocessableEntity, Error: document.ErrSensitiveContent.Error()}
