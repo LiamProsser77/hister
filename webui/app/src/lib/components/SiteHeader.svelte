@@ -16,6 +16,7 @@
     UserRound,
   } from '@lucide/svelte';
   import type { AppConfig } from '$lib/api';
+  import { detectExtensionBrowser, extensionStores } from '$lib/extension';
   import { showHelp } from '$lib/stores';
   import { setThemePreference, type ThemePreference } from '$lib/theme';
 
@@ -38,19 +39,15 @@
       color: 'var(--hister-amber)',
       external: true,
     },
-    {
-      label: 'Firefox extension',
-      href: 'https://addons.mozilla.org/en-US/firefox/addon/hister/',
-      color: 'var(--hister-rose)',
-      external: true,
-    },
-    {
-      label: 'Chrome extension',
-      href: 'https://chromewebstore.google.com/detail/hister/cciilamhchpmbdnniabclekddabkifhb',
-      color: 'var(--hister-lime)',
-      external: true,
-    },
   ];
+
+  const extensionBrowser = detectExtensionBrowser(navigator.userAgent);
+  const menuItems = extensionBrowser
+    ? [
+        ...secondaryItems,
+        { ...extensionStores[extensionBrowser], color: 'var(--hister-rose)', external: true },
+      ]
+    : secondaryItems;
 
   const menuItem =
     'font-space text-text-brand-muted data-[highlighted]:bg-muted-surface data-[highlighted]:text-text-brand cursor-pointer rounded-none px-3 py-2 text-xs font-semibold tracking-wider uppercase';
@@ -147,7 +144,7 @@
           <DropdownMenu.Separator class="bg-border-brand-muted mx-0 my-2 h-[2px]" />
         {/if}
 
-        {#each secondaryItems as item (item.href)}
+        {#each menuItems as item (item.href)}
           {@const active = !item.external && $page.route.id === `/${item.href}`}
           <DropdownMenu.Item
             class="secondary-menu-item {menuItem} {active ? 'is-active text-text-brand' : ''}"
