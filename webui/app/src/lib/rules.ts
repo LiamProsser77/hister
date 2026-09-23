@@ -3,6 +3,7 @@
 import { apiFetch } from '$lib/api';
 
 export type RuleType = 'allow' | 'skip' | 'priority' | 'versioning';
+export type RuleMatchMode = 'domain' | 'url' | 'regex';
 
 interface RuleLists {
   allow: string[];
@@ -13,6 +14,30 @@ interface RuleLists {
 
 export interface RulesData extends RuleLists {
   aliases: Record<string, string>;
+}
+
+export interface RuleDraft {
+  pattern?: string;
+  domain?: string;
+  exact_url?: string;
+  include_subdomains?: boolean;
+  url?: string;
+}
+
+export interface RulePreview {
+  pattern: string;
+  matches?: boolean;
+}
+
+export async function previewRule(draft: RuleDraft, signal?: AbortSignal): Promise<RulePreview> {
+  const response = await apiFetch('/rules/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(draft),
+    signal,
+  });
+  if (!response.ok) throw await responseError(response, 'Failed to check rule');
+  return response.json();
 }
 
 async function responseError(response: Response, fallback: string): Promise<Error> {
