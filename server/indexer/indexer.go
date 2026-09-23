@@ -712,14 +712,6 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 	// separate file from the Bleve indexes).
 	vs := idx.vectorStore
 	embedder := idx.embedder
-	if vs != nil && embedder != nil {
-		if err := vs.Clear(); err != nil {
-			log.Warn().Err(err).Msg("failed to clear vector store before reindex")
-		} else {
-			tmpIdx.vectorStore = vs
-			tmpIdx.embedder = embedder
-		}
-	}
 	abortReindex := func(err error) error {
 		// The live indexer still owns the shared vector store when reindexing
 		// aborts. Do not let closing the temporary indexer close that store.
@@ -729,6 +721,13 @@ func (idx *Indexer) reindex(ctx context.Context, basePath string, rules *config.
 			log.Warn().Err(rerr).Msg("failed to clean up temp index path")
 		}
 		return err
+	}
+	if vs != nil && embedder != nil {
+		if err := vs.Clear(); err != nil {
+			return abortReindex(fmt.Errorf("rebuild vector store before reindex: %w", err))
+		}
+		tmpIdx.vectorStore = vs
+		tmpIdx.embedder = embedder
 	}
 	q := query.NewMatchAllQuery()
 	var total uint64
